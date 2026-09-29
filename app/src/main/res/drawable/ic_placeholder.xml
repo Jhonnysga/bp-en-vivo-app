@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder para miniaturas: fondo de superficie con triángulo de "play". -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="90dp"
+    android:viewportWidth="160"
+    android:viewportHeight="90">
+    <path
+        android:fillColor="#FF10164A"
+        android:pathData="M0,0h160v90h-160z" />
+    <path
+        android:fillColor="#FFB0B0C8"
+        android:pathData="M68,32l32,13 -32,13z" />
+</vector>

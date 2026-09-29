@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pelota de béisbol: círculo blanco con costuras rojas. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,18 m-36,0 a36,36 0 1,0 72,0 a36,36 0 1,0 -72,0" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFE30613"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M36,32 Q46,54 36,76" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFE30613"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M72,32 Q62,54 72,76" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFE30613"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M38,40 l-7,2 M40,54 l-8,0 M38,68 l-7,-2 M70,40 l7,2 M68,54 l8,0 M70,68 l7,-2" />
+</vector>
