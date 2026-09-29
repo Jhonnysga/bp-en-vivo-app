@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace 'com.jhonnysga.bpenvivo'
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         applicationId 'com.jhonnysga.bpenvivo'
         minSdk 24
-        targetSdk 34
+        targetSdk 35
         versionCode 1
         versionName '1.0'
         // URL base del backend (index.php + proxy.php). Cambiar aquí para
