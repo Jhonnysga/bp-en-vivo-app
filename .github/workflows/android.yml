@@ -16,8 +16,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Install Android packages
+        run: |
+          CT=$(echo "$ANDROID_SDK_ROOT/cmdline-tools/"*/ | head -1)
+          echo "cmdline-tools: $CT"
+          yes | "${CT}bin/sdkmanager" --licenses > /dev/null || true
+          "${CT}bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
       - name: Build debug APK
         run: chmod +x gradlew && ./gradlew assembleDebug
