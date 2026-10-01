@@ -11,8 +11,8 @@ android {
         applicationId 'com.jhonnysga.bpenvivo'
         minSdk 24
         targetSdk 35
-        versionCode 1
-        versionName '1.0'
+        versionCode 2
+        versionName '1.1'
         // URL base del backend (index.php + proxy.php). Cambiar aquí para
         // apuntar a otro servidor y recompilar.
         buildConfigField("String", "BACKEND_URL", "\"https://jhon-pc.tailc7b9f2.ts.net\"")

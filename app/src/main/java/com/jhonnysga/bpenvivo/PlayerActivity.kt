@@ -2,24 +2,40 @@ package com.jhonnysga.bpenvivo
 
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.Button
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.ui.PlayerView
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_ID
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_TITLE
 
 /**
- * Reproductor a pantalla completa (teléfono y TV).
+ * Reproductor a pantalla completa (teléfono y TV), optimizado para HLS en
+ * vivo servido por el backend (proxy.php) a través de una conexión con
+ * ancho de banda variable.
+ *
+ * Estrategia anti-trabones:
+ *  1. Techo de bitrate adaptativo: las variantes llegan hasta 1080p/6.3 Mbps
+ *     y el enlace (PC hogareña + relay) no lo sostiene de forma estable; se
+ *     limita a 720p (~2.2 Mbps) para una imagen nítida sin rebuffering.
+ *  2. Estimación inicial de ancho de banda realista (2 Mbps) para no
+ *     arrancar probando la variante más pesada.
+ *  3. Buffer dimensionado para en vivo sobre red con jitter.
+ *  4. Reconexión automática con backoff exponencial ante errores: cada
+ *     reintento pide una playlist maestra fresca (los tokens vencen).
  *
  * Carga `{BACKEND}/proxy.php?m3u8=<id>`: la playlist maestra HLS trae URLs
  * relativas y ExoPlayer las resuelve contra esa misma URL, así todo el
@@ -31,11 +47,28 @@ import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_TITLE
  */
 class PlayerActivity : AppCompatActivity() {
 
+    companion object {
+        /** Tope de bitrate de video: 720p (2.18 Mbps) entra holgado. */
+        private const val MAX_VIDEO_BITRATE = 3_000_000
+        /** Estimación inicial para no arrancar en la variante más pesada. */
+        private const val INITIAL_BITRATE_ESTIMATE = 2_000_000
+        private const val MAX_RETRIES = 8
+        private const val RETRY_BASE_MS = 2_000L
+        private const val RETRY_MAX_MS = 30_000L
+    }
+
     private var player: ExoPlayer? = null
+    private var bandwidthMeter: DefaultBandwidthMeter? = null
+    private var trackSelector: DefaultTrackSelector? = null
     private lateinit var playerView: PlayerView
     private lateinit var titleView: TextView
+    private lateinit var statusView: TextView
     private lateinit var errorView: View
     private lateinit var retryButton: Button
+
+    private val handler = Handler(Looper.getMainLooper())
+    private var retryCount = 0
+    private var retryRunnable: Runnable? = null
 
     private var streamId: String = ""
     private var streamTitle: String = ""
@@ -47,61 +80,135 @@ class PlayerActivity : AppCompatActivity() {
         streamId = intent.getStringExtra(EXTRA_STREAM_ID).orEmpty()
         streamTitle = intent.getStringExtra(EXTRA_STREAM_TITLE).orEmpty()
         if (streamId.isBlank()) {
-            Toast.makeText(this, R.string.error_no_stream, Toast.LENGTH_LONG).show()
             finish()
             return
         }
 
         playerView = findViewById(R.id.player_view)
         titleView = findViewById(R.id.player_title)
+        statusView = findViewById(R.id.player_status)
         errorView = findViewById(R.id.player_error)
         retryButton = findViewById(R.id.player_retry)
 
         titleView.text = streamTitle
         playerView.keepScreenOn = true
-        retryButton.setOnClickListener { startPlayback() }
+        retryButton.setOnClickListener {
+            retryCount = 0
+            startPlayback()
+        }
         hideSystemBars()
     }
 
     override fun onStart() {
         super.onStart()
+        retryCount = 0
         startPlayback()
     }
 
     override fun onStop() {
         super.onStop()
+        cancelRetry()
         releasePlayer()
     }
 
+    private fun buildPlayer(): ExoPlayer {
+        bandwidthMeter = DefaultBandwidthMeter.Builder(this)
+            .setInitialBitrateEstimate(INITIAL_BITRATE_ESTIMATE)
+            .build()
+        trackSelector = DefaultTrackSelector(this).apply {
+            setParameters(
+                buildUponParameters()
+                    .setMaxVideoBitrate(MAX_VIDEO_BITRATE)
+                    .setAllowVideoMixedMimeTypeAdaptiveness(true)
+                    .build()
+            )
+        }
+        // Buffer para en vivo sobre red con jitter: colchón amplio sin
+        // alejarse demasiado del borde del directo.
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                /* minBufferMs = */ 20_000,
+                /* maxBufferMs = */ 50_000,
+                /* bufferForPlaybackMs = */ 2_500,
+                /* bufferForPlaybackAfterRebufferMs = */ 5_000
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+        return ExoPlayer.Builder(this)
+            .setBandwidthMeter(bandwidthMeter!!)
+            .setTrackSelector(trackSelector!!)
+            .setLoadControl(loadControl)
+            .build()
+    }
+
     private fun startPlayback() {
+        cancelRetry()
         errorView.visibility = View.GONE
         releasePlayer()
-        val uri = "${BuildConfig.BACKEND_URL}/proxy.php?m3u8=$streamId"
+        val uri = "${BuildConfig.BACKEND_URL}/proxy.php?m3u8=$streamId&t=${System.currentTimeMillis()}"
         val mediaItem = MediaItem.Builder()
             .setUri(uri)
             .setMimeType(MimeTypes.APPLICATION_M3U8)
             .build()
-        val exo = ExoPlayer.Builder(this).build().also { player = it }
+        val exo = buildPlayer().also { player = it }
         exo.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                when (state) {
+                    Player.STATE_READY -> {
+                        retryCount = 0
+                        statusView.visibility = View.GONE
+                    }
+                    Player.STATE_BUFFERING -> {
+                        if (statusView.visibility != View.VISIBLE || statusView.tag != "reconnect") {
+                            statusView.text = getString(R.string.status_buffering)
+                            statusView.tag = "buffering"
+                            statusView.visibility = View.VISIBLE
+                        }
+                    }
+                }
+            }
+
             override fun onPlayerError(error: PlaybackException) {
-                errorView.visibility = View.VISIBLE
-                Toast.makeText(
-                    this@PlayerActivity,
-                    R.string.error_playback,
-                    Toast.LENGTH_LONG
-                ).show()
+                scheduleRetry()
             }
         })
         playerView.player = exo
+        statusView.text = getString(R.string.status_connecting)
+        statusView.tag = "connecting"
+        statusView.visibility = View.VISIBLE
         exo.setMediaItem(mediaItem)
         exo.prepare()
         exo.play()
+    }
+
+    /** Reintento automático con backoff: la señal en vivo se recupera sola. */
+    private fun scheduleRetry() {
+        if (retryCount >= MAX_RETRIES) {
+            statusView.visibility = View.GONE
+            errorView.visibility = View.VISIBLE
+            return
+        }
+        retryCount++
+        val delay = (RETRY_BASE_MS * (1L shl (retryCount - 1))).coerceAtMost(RETRY_MAX_MS)
+        statusView.text = getString(R.string.status_reconnecting, retryCount)
+        statusView.tag = "reconnect"
+        statusView.visibility = View.VISIBLE
+        val r = Runnable { startPlayback() }
+        retryRunnable = r
+        handler.postDelayed(r, delay)
+    }
+
+    private fun cancelRetry() {
+        retryRunnable?.let { handler.removeCallbacks(it) }
+        retryRunnable = null
     }
 
     private fun releasePlayer() {
         playerView.player = null
         player?.release()
         player = null
+        trackSelector = null
+        bandwidthMeter = null
     }
 
     private fun hideSystemBars() {

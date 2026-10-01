@@ -9,4 +9,7 @@
     <string name="tv_row_live">En vivo ahora</string>
     <string name="error_playback">No se pudo reproducir la transmisión</string>
     <string name="error_no_stream">Transmisión no disponible</string>
+    <string name="status_connecting">Conectando…</string>
+    <string name="status_buffering">Cargando…</string>
+    <string name="status_reconnecting">Señal interrumpida, reconectando… (%1$d)</string>
 </resources>
