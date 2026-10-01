@@ -51,7 +51,7 @@ class PlayerActivity : AppCompatActivity() {
         /** Tope de bitrate de video: 720p (2.18 Mbps) entra holgado. */
         private const val MAX_VIDEO_BITRATE = 3_000_000
         /** Estimación inicial para no arrancar en la variante más pesada. */
-        private const val INITIAL_BITRATE_ESTIMATE = 2_000_000
+        private const val INITIAL_BITRATE_ESTIMATE = 2_000_000L
         private const val MAX_RETRIES = 8
         private const val RETRY_BASE_MS = 2_000L
         private const val RETRY_MAX_MS = 30_000L
