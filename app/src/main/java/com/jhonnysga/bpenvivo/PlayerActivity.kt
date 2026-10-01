@@ -92,6 +92,7 @@ class PlayerActivity : AppCompatActivity() {
 
         titleView.text = streamTitle
         playerView.keepScreenOn = true
+        playerView.requestFocus() // control remoto (Fire TV): el D-pad maneja el reproductor
         retryButton.setOnClickListener {
             retryCount = 0
             startPlayback()
@@ -186,6 +187,7 @@ class PlayerActivity : AppCompatActivity() {
         if (retryCount >= MAX_RETRIES) {
             statusView.visibility = View.GONE
             errorView.visibility = View.VISIBLE
+            retryButton.requestFocus() // que el control remoto pueda pulsar Reintentar
             return
         }
         retryCount++
