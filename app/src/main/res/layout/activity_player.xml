@@ -22,6 +22,19 @@
         android:textSize="15sp"
         android:textStyle="bold" />
 
+    <Button
+        android:id="@+id/player_quality"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="56dp"
+        android:layout_marginEnd="12dp"
+        android:background="#80000000"
+        android:textColor="@android:color/white"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:padding="10dp" />
+
     <TextView
         android:id="@+id/player_status"
         android:layout_width="wrap_content"

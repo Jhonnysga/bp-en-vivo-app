@@ -28,9 +28,9 @@ import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_TITLE
  * ancho de banda variable.
  *
  * Estrategia anti-trabones:
- *  1. Bitrate totalmente adaptativo (hasta 1080p/6.3 Mbps): arranca con
- *     estimación conservadora (2 Mbps) y sube de calidad solo si la
- *     conexión lo sostiene; si no, baja solo a 720p/480p sin pausar.
+ *  1. Tope por defecto en 720p (2.18 Mbps): nítido y estable en el enlace
+ *     actual; el usuario puede cambiar a 1080p desde el botón de calidad
+ *     (la elección se guarda).
  *  2. Estimación inicial de ancho de banda realista (2 Mbps) para no
  *     arrancar probando la variante más pesada.
  *  3. Buffer dimensionado para en vivo sobre red con jitter.
@@ -48,11 +48,14 @@ import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_TITLE
 class PlayerActivity : AppCompatActivity() {
 
     companion object {
+        /** Tope por defecto: 720p (2.18 Mbps), estable en el enlace actual. */
+        private const val MAX_VIDEO_BITRATE = 3_000_000
         /** Estimación inicial para no arrancar en la variante más pesada. */
         private const val INITIAL_BITRATE_ESTIMATE = 2_000_000L
         private const val MAX_RETRIES = 8
         private const val RETRY_BASE_MS = 2_000L
         private const val RETRY_MAX_MS = 30_000L
+        private const val PREF_MAX_BITRATE = "max_video_bitrate"
     }
 
     private var player: ExoPlayer? = null
@@ -61,6 +64,7 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var playerView: PlayerView
     private lateinit var titleView: TextView
     private lateinit var statusView: TextView
+    private lateinit var qualityButton: Button
     private lateinit var errorView: View
     private lateinit var retryButton: Button
 
@@ -85,12 +89,15 @@ class PlayerActivity : AppCompatActivity() {
         playerView = findViewById(R.id.player_view)
         titleView = findViewById(R.id.player_title)
         statusView = findViewById(R.id.player_status)
+        qualityButton = findViewById(R.id.player_quality)
         errorView = findViewById(R.id.player_error)
         retryButton = findViewById(R.id.player_retry)
 
         titleView.text = streamTitle
         playerView.keepScreenOn = true
         playerView.requestFocus() // control remoto (Fire TV): el D-pad maneja el reproductor
+        qualityButton.setOnClickListener { showQualityDialog() }
+        updateQualityLabel()
         retryButton.setOnClickListener {
             retryCount = 0
             startPlayback()
@@ -117,6 +124,7 @@ class PlayerActivity : AppCompatActivity() {
         trackSelector = DefaultTrackSelector(this).apply {
             setParameters(
                 buildUponParameters()
+                    .setMaxVideoBitrate(currentMaxBitrate())
                     .setAllowVideoMixedMimeTypeAdaptiveness(true)
                     .build()
             )
@@ -179,9 +187,38 @@ class PlayerActivity : AppCompatActivity() {
         exo.play()
     }
 
+    /** Tope de calidad elegido por el usuario (por defecto 720p). */
+    private fun currentMaxBitrate(): Int {
+        return getPreferences(MODE_PRIVATE).getInt(PREF_MAX_BITRATE, MAX_VIDEO_BITRATE)
+    }
+
+    private fun updateQualityLabel() {
+        qualityButton.text = if (currentMaxBitrate() >= 6_000_000) "1080p" else "720p"
+    }
+
+    /** Diálogo para cambiar entre 720p (estable) y 1080p. */
+    private fun showQualityDialog() {
+        val options = arrayOf(
+            getString(R.string.quality_auto_720),
+            getString(R.string.quality_auto_1080)
+        )
+        val checked = if (currentMaxBitrate() >= 6_000_000) 1 else 0
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.quality_title)
+            .setSingleChoiceItems(options, checked) { dialog, which ->
+                val cap = if (which == 1) Int.MAX_VALUE else MAX_VIDEO_BITRATE
+                getPreferences(MODE_PRIVATE).edit().putInt(PREF_MAX_BITRATE, cap).apply()
+                trackSelector?.setParameters(
+                    trackSelector!!.buildUponParameters().setMaxVideoBitrate(cap).build()
+                )
+                updateQualityLabel()
+                dialog.dismiss()
+            }
+            .show()
+    }
+
     /** Reintento automático con backoff: la señal en vivo se recupera sola. */
-    private fun scheduleRetry() {
-        if (retryCount >= MAX_RETRIES) {
+    private fun scheduleRetry() {        if (retryCount >= MAX_RETRIES) {
             statusView.visibility = View.GONE
             errorView.visibility = View.VISIBLE
             retryButton.requestFocus() // que el control remoto pueda pulsar Reintentar

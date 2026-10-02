@@ -12,4 +12,7 @@
     <string name="status_connecting">Conectando…</string>
     <string name="status_buffering">Cargando…</string>
     <string name="status_reconnecting">Señal interrumpida, reconectando… (%1$d)</string>
+    <string name="quality_title">Calidad de video</string>
+    <string name="quality_auto_720">Automática (hasta 720p)</string>
+    <string name="quality_auto_1080">Automática (hasta 1080p)</string>
 </resources>
