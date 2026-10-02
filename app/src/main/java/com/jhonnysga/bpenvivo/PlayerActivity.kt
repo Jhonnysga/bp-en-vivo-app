@@ -28,9 +28,9 @@ import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_TITLE
  * ancho de banda variable.
  *
  * Estrategia anti-trabones:
- *  1. Techo de bitrate adaptativo: las variantes llegan hasta 1080p/6.3 Mbps
- *     y el enlace (PC hogareña + relay) no lo sostiene de forma estable; se
- *     limita a 720p (~2.2 Mbps) para una imagen nítida sin rebuffering.
+ *  1. Bitrate totalmente adaptativo (hasta 1080p/6.3 Mbps): arranca con
+ *     estimación conservadora (2 Mbps) y sube de calidad solo si la
+ *     conexión lo sostiene; si no, baja solo a 720p/480p sin pausar.
  *  2. Estimación inicial de ancho de banda realista (2 Mbps) para no
  *     arrancar probando la variante más pesada.
  *  3. Buffer dimensionado para en vivo sobre red con jitter.
@@ -48,8 +48,6 @@ import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_TITLE
 class PlayerActivity : AppCompatActivity() {
 
     companion object {
-        /** Tope de bitrate de video: 720p (2.18 Mbps) entra holgado. */
-        private const val MAX_VIDEO_BITRATE = 3_000_000
         /** Estimación inicial para no arrancar en la variante más pesada. */
         private const val INITIAL_BITRATE_ESTIMATE = 2_000_000L
         private const val MAX_RETRIES = 8
@@ -119,7 +117,6 @@ class PlayerActivity : AppCompatActivity() {
         trackSelector = DefaultTrackSelector(this).apply {
             setParameters(
                 buildUponParameters()
-                    .setMaxVideoBitrate(MAX_VIDEO_BITRATE)
                     .setAllowVideoMixedMimeTypeAdaptiveness(true)
                     .build()
             )
