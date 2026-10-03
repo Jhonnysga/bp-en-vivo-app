@@ -48,7 +48,8 @@ class MainActivity : AppCompatActivity() {
         swipe.isRefreshing = true
         errorView.visibility = View.GONE
         Thread {
-            val result = runCatching { ApiClient.fetchLive(BuildConfig.BACKEND_URL) }
+            val baseUrl = BackendResolver.resolve(BuildConfig.BACKEND_URL)
+            val result = runCatching { ApiClient.fetchLive(baseUrl) }
             runOnUiThread {
                 swipe.isRefreshing = false
                 result
@@ -69,10 +70,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openPlayer(item: StreamItem) {
+        // La URL ya quedó resuelta (y cacheada) en load(); se reutiliza.
+        val baseUrl = BackendResolver.resolve(BuildConfig.BACKEND_URL)
         startActivity(
             Intent(this, PlayerActivity::class.java).apply {
                 putExtra(EXTRA_STREAM_ID, item.id)
                 putExtra(EXTRA_STREAM_TITLE, item.title)
+                putExtra(EXTRA_BACKEND_URL, baseUrl)
             }
         )
     }
@@ -80,5 +84,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_STREAM_ID = "stream_id"
         const val EXTRA_STREAM_TITLE = "stream_title"
+        const val EXTRA_BACKEND_URL = "backend_url"
     }
 }

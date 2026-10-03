@@ -19,6 +19,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.ui.PlayerView
+import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_BACKEND_URL
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_ID
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_TITLE
 
@@ -56,6 +57,8 @@ class PlayerActivity : AppCompatActivity() {
         private const val RETRY_BASE_MS = 2_000L
         private const val RETRY_MAX_MS = 30_000L
         private const val PREF_MAX_BITRATE = "max_video_bitrate"
+        /** Tiempo sin interacción antes de ocultar título y botón de calidad. */
+        private const val OVERLAY_HIDE_MS = 5_000L
     }
 
     private var player: ExoPlayer? = null
@@ -71,9 +74,11 @@ class PlayerActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private var retryCount = 0
     private var retryRunnable: Runnable? = null
+    private var overlayHideRunnable: Runnable? = null
 
     private var streamId: String = ""
     private var streamTitle: String = ""
+    private var backendUrl: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -81,6 +86,8 @@ class PlayerActivity : AppCompatActivity() {
 
         streamId = intent.getStringExtra(EXTRA_STREAM_ID).orEmpty()
         streamTitle = intent.getStringExtra(EXTRA_STREAM_TITLE).orEmpty()
+        backendUrl = intent.getStringExtra(EXTRA_BACKEND_URL)
+            .takeIf { !it.isNullOrBlank() } ?: BuildConfig.BACKEND_URL
         if (streamId.isBlank()) {
             finish()
             return
@@ -97,12 +104,55 @@ class PlayerActivity : AppCompatActivity() {
         playerView.keepScreenOn = true
         playerView.requestFocus() // control remoto (Fire TV): el D-pad maneja el reproductor
         qualityButton.setOnClickListener { showQualityDialog() }
+        qualityButton.isFocusable = true
         updateQualityLabel()
         retryButton.setOnClickListener {
             retryCount = 0
             startPlayback()
         }
         hideSystemBars()
+        showOverlays()
+    }
+
+    /** Muestra título + botón de calidad y programa su ocultado. */
+    private fun showOverlays() {
+        titleView.visibility = View.VISIBLE
+        qualityButton.visibility = View.VISIBLE
+        scheduleOverlayHide()
+    }
+
+    private fun hideOverlays() {
+        titleView.visibility = View.GONE
+        // El botón de calidad se oculta solo si no tiene el foco (TV)
+        if (!qualityButton.hasFocus()) {
+            qualityButton.visibility = View.GONE
+        } else {
+            scheduleOverlayHide()
+        }
+    }
+
+    private fun scheduleOverlayHide() {
+        cancelOverlayHide()
+        val r = Runnable { hideOverlays() }
+        overlayHideRunnable = r
+        handler.postDelayed(r, OVERLAY_HIDE_MS)
+    }
+
+    private fun cancelOverlayHide() {
+        overlayHideRunnable?.let { handler.removeCallbacks(it) }
+        overlayHideRunnable = null
+    }
+
+    // Teléfono: cualquier toque muestra los overlays de nuevo.
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        if (ev.action == android.view.MotionEvent.ACTION_DOWN) showOverlays()
+        return super.dispatchTouchEvent(ev)
+    }
+
+    // Fire TV: cualquier tecla del control muestra los overlays de nuevo.
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean {
+        showOverlays()
+        return super.onKeyDown(keyCode, event)
     }
 
     override fun onStart() {
@@ -114,6 +164,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         cancelRetry()
+        cancelOverlayHide()
         releasePlayer()
     }
 
@@ -151,7 +202,7 @@ class PlayerActivity : AppCompatActivity() {
         cancelRetry()
         errorView.visibility = View.GONE
         releasePlayer()
-        val uri = "${BuildConfig.BACKEND_URL}/proxy.php?m3u8=$streamId&t=${System.currentTimeMillis()}"
+        val uri = "$backendUrl/proxy.php?m3u8=$streamId&t=${System.currentTimeMillis()}"
         val mediaItem = MediaItem.Builder()
             .setUri(uri)
             .setMimeType(MimeTypes.APPLICATION_M3U8)
@@ -193,7 +244,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun updateQualityLabel() {
-        qualityButton.text = if (currentMaxBitrate() >= 6_000_000) "1080p" else "720p"
+        qualityButton.text = if (currentMaxBitrate() >= 6_000_000) "⚙ 1080p" else "⚙ 720p"
     }
 
     /** Diálogo para cambiar entre 720p (estable) y 1080p. */
