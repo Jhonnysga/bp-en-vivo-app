@@ -55,7 +55,8 @@
                 android:id="@+id/mitv_pass"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textPassword" />
+                android:inputType="textPassword"
+                android:nextFocusDown="@+id/mitv_remember" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -66,6 +67,7 @@
             android:layout_gravity="start"
             android:layout_marginTop="12dp"
             android:checked="true"
+            android:nextFocusDown="@+id/mitv_login_btn"
             android:text="@string/mitv_remember"
             android:textColor="@color/text_secondary" />
 

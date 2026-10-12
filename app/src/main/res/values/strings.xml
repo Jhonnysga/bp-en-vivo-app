@@ -42,4 +42,5 @@
     <string name="mitv_load_error">No se pudo cargar</string>
     <string name="mitv_poster_desc">Imagen del contenido</string>
     <string name="mitv_drm_error">Contenido protegido: no se pudo obtener la licencia de reproducción</string>
+    <string name="mitv_beisbol_desc">Transmisiones de béisbol en vivo</string>
 </resources>

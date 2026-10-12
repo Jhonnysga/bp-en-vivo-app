@@ -20,6 +20,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.jhonnysga.bpenvivo.ImageLoader
+import com.jhonnysga.bpenvivo.MainActivity
 import com.jhonnysga.bpenvivo.R
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -159,6 +160,7 @@ class MiTvBrowserActivity : AppCompatActivity() {
         menu.add(0, 10, 0, getString(R.string.mitv_channels))
         menu.add(0, 11, 0, getString(R.string.mitv_movies))
         menu.add(0, 12, 0, getString(R.string.mitv_series))
+        menu.add(0, 13, 0, getString(R.string.app_name))
         menu.add(0, 1, 0, getString(R.string.mitv_logout))
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
         return true
@@ -170,6 +172,11 @@ class MiTvBrowserActivity : AppCompatActivity() {
                 store.logout()
                 startActivity(Intent(this, MiTvLoginActivity::class.java))
                 finish()
+                return true
+            }
+            13 -> {
+                // Volver a la sección de BéisbolPlay (no requiere sesión MiTV).
+                startActivity(Intent(this, MainActivity::class.java))
                 return true
             }
             10, 11, 12 -> {

@@ -34,6 +34,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Sin sesión de MiTV, el login es lo primero que se ve (sin pantallas intermedias).
+        if (!SessionStore(this).hasSession()) {
+            startActivity(Intent(this, MiTvLoginActivity::class.java))
+            finish()
+            return
+        }
         setContentView(R.layout.activity_main)
 
         swipe = findViewById(R.id.swipe)

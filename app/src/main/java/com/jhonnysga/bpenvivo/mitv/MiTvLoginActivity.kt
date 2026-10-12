@@ -52,13 +52,12 @@ class MiTvLoginActivity : AppCompatActivity() {
         progress = findViewById(R.id.mitv_progress)
         errorView = findViewById(R.id.mitv_error)
 
-        // Prefill con lo recordado (sin exponer la clave en claro fuera del campo).
-        store.getCredentials()?.let { (email, pass) ->
-            userField.setText(email)
-            passField.setText(pass)
-        }
-        store.getEmail()?.let { userField.setText(it) }
+        // Pre-llenado: siempre el último usuario escrito; la clave solo si
+        // se marcó "recordarme" (queda cifrada en el dispositivo).
+        userField.setText(store.getEmail().orEmpty())
+        store.getCredentials()?.let { (_, pass) -> passField.setText(pass) }
 
+        // Foco inicial en el campo usuario (también con D-pad en Fire TV).
         userField.requestFocus()
         loginBtn.setOnClickListener { doLogin() }
     }

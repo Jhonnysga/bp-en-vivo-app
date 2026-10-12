@@ -15,6 +15,7 @@ import com.jhonnysga.bpenvivo.mitv.MiTvPlayerActivity
 import com.jhonnysga.bpenvivo.mitv.SessionStore
 import com.jhonnysga.bpenvivo.mitv.SetplexClient
 import com.jhonnysga.bpenvivo.mitv.TvChannel
+import com.jhonnysga.bpenvivo.tv.TvMainActivity
 
 /**
  * Navegador Leanback de MiTV: una fila por categoría con tarjetas de canales.
@@ -26,6 +27,11 @@ class MiTvTvBrowseFragment : BrowseSupportFragment() {
     private val cardPresenter = MiTvCardPresenter()
     private lateinit var store: SessionStore
 
+    companion object {
+        /** Id reservado de la tarjeta que abre BéisbolPlay (no es un canal). */
+        private const val BEISBOL_ID = "mitv:beisbol"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = SessionStore(requireContext())
@@ -36,6 +42,10 @@ class MiTvTvBrowseFragment : BrowseSupportFragment() {
 
         onItemViewClickedListener = OnItemViewClickedListener { _, item, _, _ ->
             if (item is TvChannel) {
+                if (item.id == BEISBOL_ID) {
+                    startActivity(Intent(requireContext(), TvMainActivity::class.java))
+                    return@OnItemViewClickedListener
+                }
                 startActivity(
                     Intent(requireContext(), MiTvPlayerActivity::class.java).apply {
                         putExtra(MiTvPlayerActivity.EXTRA_KIND, MiTvPlayerActivity.KIND_TV)
@@ -61,6 +71,22 @@ class MiTvTvBrowseFragment : BrowseSupportFragment() {
                 result
                     .onSuccess { (channels, categories) ->
                         rowsAdapter.clear()
+                        // Fila BéisbolPlay primero (no requiere sesión MiTV).
+                        val beisbolAdapter = ArrayObjectAdapter(cardPresenter)
+                        beisbolAdapter.add(
+                            TvChannel(
+                                id = BEISBOL_ID,
+                                name = getString(R.string.app_name),
+                                logoUrl = null,
+                                channelNumber = null,
+                                categoryId = null,
+                                categoryName = getString(R.string.mitv_beisbol_desc),
+                                epgId = null
+                            )
+                        )
+                        rowsAdapter.add(
+                            ListRow(HeaderItem(getString(R.string.app_name)), beisbolAdapter)
+                        )
                         if (categories.isEmpty()) {
                             addRow(getString(R.string.mitv_channels), channels)
                         } else {
