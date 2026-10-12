@@ -313,14 +313,14 @@ class MiTvBrowserActivity : AppCompatActivity() {
 
     private fun loadMovies(): List<PosterItem> =
         SetplexClient.getMovies(store).map { v ->
-            PosterItem(v.title, null, v.posterUrl) {
+            PosterItem(v.title, null, v.posterUrl, onClick = {
                 openPlayer(MiTvPlayerActivity.KIND_VOD, v.id, v.title)
             }
         }
 
     private fun loadSeries(): List<PosterItem> =
         SetplexClient.getSeries(store).map { s ->
-            PosterItem(s.title, null, s.posterUrl) {
+            PosterItem(s.title, null, s.posterUrl, onClick = {
                 startActivity(
                     Intent(this, MiTvBrowserActivity::class.java).apply {
                         putExtra(EXTRA_MODE, MODE_SEASONS)
@@ -333,7 +333,7 @@ class MiTvBrowserActivity : AppCompatActivity() {
 
     private fun loadSeasons(): List<PosterItem> =
         SetplexClient.getSeasons(store, seriesId).map { s ->
-            PosterItem(s.title, null, s.posterUrl) {
+            PosterItem(s.title, null, s.posterUrl, onClick = {
                 startActivity(
                     Intent(this, MiTvBrowserActivity::class.java).apply {
                         putExtra(EXTRA_MODE, MODE_EPISODES)
@@ -347,7 +347,7 @@ class MiTvBrowserActivity : AppCompatActivity() {
 
     private fun loadEpisodes(): List<PosterItem> =
         SetplexClient.getEpisodes(store, seriesId, seasonId).map { e ->
-            PosterItem(e.title, null, e.posterUrl) {
+            PosterItem(e.title, null, e.posterUrl, onClick = {
                 openPlayer(
                     MiTvPlayerActivity.KIND_EPISODE, e.id, e.title,
                     e.seriesId, e.seasonId
@@ -360,7 +360,7 @@ class MiTvBrowserActivity : AppCompatActivity() {
         val fmt = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
         return progs.map { p ->
             val sub = if (p.startMs > 0) fmt.format(Date(p.startMs)) else null
-            PosterItem(p.title, sub, null, {
+            PosterItem(p.title, sub, null, onClick = {
                 openPlayer(MiTvPlayerActivity.KIND_CATCHUP, p.id, p.title, channelId, p.catchupId)
             })
         }
