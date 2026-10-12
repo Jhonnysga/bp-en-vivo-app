@@ -28,10 +28,12 @@ import java.util.concurrent.TimeUnit
  * - Envoltorio: `{"status":"OK"|"ERROR","payload":{...},"errorCode":...}`.
  *
  * SUPOSICIONES (no verificables por el geoblock; documentadas, no inventadas
- * como hechos):
+ * como hechos). Actualizado 12/10/2026 con prueba real del usuario: el login
+ * funciona y el token de sesión viene en `sessionId` del payload.
  * 1. El JWT de sesión viaja en `Authorization: Bearer <jwt>`.
- * 2. El token viene en el payload del login bajo `token`/`accessToken`/`jwt`/
- *    `idToken`/`authToken` (o dentro de `session`). Si el formato real difiere,
+ * 2. El token se extrae del payload del login: primero `sessionId`
+ *    (verificado), luego `token`/`accessToken`/`jwt`/`idToken`/`authToken`
+ *    (o dentro de `session`). Si el formato real difiere,
  *    [extractToken] lanza un error explícito en vez de fallar en silencio.
  * 3. `POST /v3/session/refresh` con `{}` renueva el JWT (misma extracción).
  * 4. El payload de `.../url` trae `url` y, si hay DRM, `licenseUrl` (+ headers).
@@ -398,7 +400,9 @@ object SetplexClient {
     }
 
     private fun extractToken(payload: JSONObject): String? {
-        val keys = listOf("token", "accessToken", "jwt", "idToken", "authToken")
+        // Verificado en vivo (12/10/2026, prueba real del usuario): el token de
+        // sesión viene en el campo `sessionId` del payload.
+        val keys = listOf("sessionId", "token", "accessToken", "jwt", "idToken", "authToken")
         for (k in keys) payload.optString(k).takeIf { it.isNotBlank() }?.let { return it }
         val session = payload.optJSONObject("session")
         if (session != null) {
