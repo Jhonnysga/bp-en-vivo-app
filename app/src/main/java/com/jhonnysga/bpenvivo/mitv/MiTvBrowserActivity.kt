@@ -315,7 +315,7 @@ class MiTvBrowserActivity : AppCompatActivity() {
         SetplexClient.getMovies(store).map { v ->
             PosterItem(v.title, null, v.posterUrl, onClick = {
                 openPlayer(MiTvPlayerActivity.KIND_VOD, v.id, v.title)
-            }
+            })
         }
 
     private fun loadSeries(): List<PosterItem> =
@@ -328,7 +328,7 @@ class MiTvBrowserActivity : AppCompatActivity() {
                         putExtra(EXTRA_TITLE, s.title)
                     }
                 )
-            }
+            })
         }
 
     private fun loadSeasons(): List<PosterItem> =
@@ -342,7 +342,7 @@ class MiTvBrowserActivity : AppCompatActivity() {
                         putExtra(EXTRA_TITLE, s.title)
                     }
                 )
-            }
+            })
         }
 
     private fun loadEpisodes(): List<PosterItem> =
@@ -352,7 +352,7 @@ class MiTvBrowserActivity : AppCompatActivity() {
                     MiTvPlayerActivity.KIND_EPISODE, e.id, e.title,
                     e.seriesId, e.seasonId
                 )
-            }
+            })
         }
 
     private fun loadCatchup(): List<PosterItem> {
