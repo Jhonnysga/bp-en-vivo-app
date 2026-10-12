@@ -36,6 +36,22 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden" />
 
+        <!-- MiTV (Thundernet TV GO): login, navegador y reproductor -->
+        <activity
+            android:name=".mitv.MiTvLoginActivity"
+            android:exported="false" />
+        <activity
+            android:name=".mitv.MiTvBrowserActivity"
+            android:exported="false" />
+        <activity
+            android:name=".mitv.MiTvPlayerActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity
+            android:name=".mitv.tv.MiTvTvActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Leanback.Browse" />
+
         <!-- Android TV / Fire TV Stick -->
         <activity
             android:name=".tv.TvMainActivity"

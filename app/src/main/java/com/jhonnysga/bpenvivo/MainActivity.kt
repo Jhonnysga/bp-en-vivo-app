@@ -10,9 +10,16 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 
+import com.jhonnysga.bpenvivo.mitv.MiTvBrowserActivity
+import com.jhonnysga.bpenvivo.mitv.MiTvLoginActivity
+import com.jhonnysga.bpenvivo.mitv.SessionStore
+
 /**
  * Pantalla principal (teléfonos/tablets): lista de transmisiones en vivo
  * con "tirar para actualizar". Tocar una abre el reproductor.
+ *
+ * El botón "MiTV" abre la sección de Thundernet TV GO (canales, películas,
+ * series y catchup con la cuenta del usuario).
  */
 class MainActivity : AppCompatActivity() {
 
@@ -40,8 +47,20 @@ class MainActivity : AppCompatActivity() {
         list.adapter = adapter
         swipe.setOnRefreshListener { load() }
         retryButton.setOnClickListener { load() }
+        findViewById<Button>(R.id.mitv_button).setOnClickListener { openMiTv() }
 
         load()
+    }
+
+    /** Abre MiTV: al navegador si hay sesión, al login si no. */
+    private fun openMiTv() {
+        val store = SessionStore(this)
+        val target = if (store.hasSession()) {
+            MiTvBrowserActivity::class.java
+        } else {
+            MiTvLoginActivity::class.java
+        }
+        startActivity(Intent(this, target))
     }
 
     private fun load() {

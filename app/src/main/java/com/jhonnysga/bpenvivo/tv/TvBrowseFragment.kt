@@ -18,6 +18,7 @@ import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_TITLE
 import com.jhonnysga.bpenvivo.PlayerActivity
 import com.jhonnysga.bpenvivo.R
 import com.jhonnysga.bpenvivo.StreamItem
+import com.jhonnysga.bpenvivo.mitv.tv.MiTvTvActivity
 
 /**
  * Navegador Leanback: una fila "En vivo" con tarjetas por transmisión.
@@ -29,6 +30,11 @@ class TvBrowseFragment : BrowseSupportFragment() {
     private val cardPresenter = TvCardPresenter()
     @Volatile private var baseUrl: String = BuildConfig.BACKEND_URL
 
+    companion object {
+        /** Id reservado de la tarjeta que abre MiTV (no es un stream real). */
+        private const val MITV_OPEN_ID = "mitv:open"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         title = getString(R.string.app_name)
@@ -38,6 +44,10 @@ class TvBrowseFragment : BrowseSupportFragment() {
 
         onItemViewClickedListener = OnItemViewClickedListener { _, item, _, _ ->
             if (item is StreamItem) {
+                if (item.id == MITV_OPEN_ID) {
+                    startActivity(Intent(requireContext(), MiTvTvActivity::class.java))
+                    return@OnItemViewClickedListener
+                }
                 startActivity(
                     Intent(requireContext(), PlayerActivity::class.java).apply {
                         putExtra(EXTRA_STREAM_ID, item.id)
@@ -58,6 +68,18 @@ class TvBrowseFragment : BrowseSupportFragment() {
                 .getOrDefault(emptyList())
             activity?.runOnUiThread {
                 rowsAdapter.clear()
+                // Fila MiTV primero: abre la sección de Thundernet TV GO.
+                val mitvAdapter = ArrayObjectAdapter(cardPresenter)
+                mitvAdapter.add(
+                    StreamItem(
+                        id = MITV_OPEN_ID,
+                        title = getString(R.string.mitv_open),
+                        thumbnail = null,
+                        channel = getString(R.string.mitv_open_desc),
+                        logo = null
+                    )
+                )
+                rowsAdapter.add(ListRow(HeaderItem(getString(R.string.mitv_title)), mitvAdapter))
                 val rowAdapter = ArrayObjectAdapter(cardPresenter)
                 items.forEach(rowAdapter::add)
                 rowsAdapter.add(ListRow(HeaderItem(getString(R.string.tv_row_live)), rowAdapter))

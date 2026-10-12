@@ -15,4 +15,31 @@
     <string name="quality_title">Calidad de video</string>
     <string name="quality_auto_720">Automática (hasta 720p)</string>
     <string name="quality_auto_1080">Automática (hasta 1080p)</string>
+
+    <!-- MiTV (Thundernet TV GO) -->
+    <string name="mitv_title">MiTV</string>
+    <string name="mitv_open">Abrir MiTV</string>
+    <string name="mitv_open_desc">Canales, películas y series de tu proveedor</string>
+    <string name="mitv_login_subtitle">Entra con tu usuario de Thundernet TV GO.\nTus datos solo se envían a app.thundernet.net.ve.</string>
+    <string name="mitv_user_hint">Usuario o correo electrónico</string>
+    <string name="mitv_pass_hint">Contraseña</string>
+    <string name="mitv_remember">Recordarme en este dispositivo</string>
+    <string name="mitv_login_btn">Entrar</string>
+    <string name="mitv_login_empty">Escribe tu usuario y tu contraseña</string>
+    <string name="mitv_login_bad">Usuario o contraseña incorrectos</string>
+    <string name="mitv_login_auth">No se pudo iniciar sesión: %1$s</string>
+    <string name="mitv_login_error">No se pudo iniciar sesión: %1$s</string>
+    <string name="mitv_geoblock">Este servicio solo está disponible en Venezuela (restricción del proveedor). Conéctate desde una red venezolana e inténtalo de nuevo.</string>
+    <string name="mitv_logout">Cerrar sesión de MiTV</string>
+    <string name="mitv_channels">Canales</string>
+    <string name="mitv_movies">Películas</string>
+    <string name="mitv_series">Series</string>
+    <string name="mitv_all_categories">Todas las categorías</string>
+    <string name="mitv_ch_number">N.º %1$s</string>
+    <string name="mitv_catchup_title">Programas: %1$s</string>
+    <string name="mitv_catchup_gone">El programa ya no está disponible en catchup</string>
+    <string name="mitv_empty">No hay elementos para mostrar</string>
+    <string name="mitv_load_error">No se pudo cargar</string>
+    <string name="mitv_poster_desc">Imagen del contenido</string>
+    <string name="mitv_drm_error">Contenido protegido: no se pudo obtener la licencia de reproducción</string>
 </resources>
