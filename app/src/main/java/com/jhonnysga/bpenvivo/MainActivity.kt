@@ -32,6 +32,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var errorView: View
     private lateinit var errorText: TextView
     private lateinit var retryButton: Button
+    private lateinit var bottomNav: com.google.android.material.bottomnavigation.BottomNavigationView
+    private lateinit var settingsView: View
+    private lateinit var settingsVersion: TextView
+    private lateinit var settingsBackupCount: TextView
+    private lateinit var settingsClearBackup: Button
 
     private val adapter = StreamAdapter { openPlayer(it) }
     private var lastItems: List<StreamItem> = emptyList()
@@ -54,6 +59,11 @@ class MainActivity : AppCompatActivity() {
         errorView = findViewById(R.id.error_view)
         errorText = findViewById(R.id.error_text)
         retryButton = findViewById(R.id.retry_button)
+        bottomNav = findViewById(R.id.bottom_nav)
+        settingsView = findViewById(R.id.settings_view)
+        settingsVersion = findViewById(R.id.settings_version)
+        settingsBackupCount = findViewById(R.id.settings_backup_count)
+        settingsClearBackup = findViewById(R.id.settings_clear_backup)
 
         list.layoutManager = LinearLayoutManager(this)
         list.adapter = adapter
@@ -64,6 +74,18 @@ class MainActivity : AppCompatActivity() {
             } else {
                 load()
             }
+        }
+        bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_settings -> showSettings()
+                else -> showLive()
+            }
+            true
+        }
+        settingsClearBackup.setOnClickListener {
+            // Borra el respaldo (se reconstruye al descubrir canales).
+            getSharedPreferences("channel_backup", MODE_PRIVATE).edit().clear().apply()
+            updateSettings()
         }
 
         load()
@@ -85,7 +107,11 @@ class MainActivity : AppCompatActivity() {
         Thread {
             val result = runCatching {
                 when (source) {
-                    Source.BEISBOLPLAY -> DailymotionClient.fetchLive()
+                    Source.BEISBOLPLAY -> {
+                        val live = DailymotionClient.fetchLive()
+                        // Si el API no trae nada, usar el respaldo local.
+                        if (live.isEmpty()) ChannelBackup.load() else live
+                    }
                     Source.THUNDERNET -> ThundernetClient.getChannels()
                 }
             }
@@ -100,6 +126,17 @@ class MainActivity : AppCompatActivity() {
                         emptyView.visibility = if (empty) View.VISIBLE else View.GONE
                     }
                     .onFailure { e ->
+                        // Sin red: último recurso, el respaldo local.
+                        if (source == Source.BEISBOLPLAY) {
+                            val backup = ChannelBackup.load()
+                            if (backup.isNotEmpty()) {
+                                lastItems = backup
+                                adapter.submit(backup)
+                                list.visibility = View.VISIBLE
+                                emptyView.visibility = View.GONE
+                                return@runOnUiThread
+                            }
+                        }
                         // Sesión TruenoTv vencida sin remedio: pedir login
                         if (source == Source.THUNDERNET && e is ThundernetClient.AuthException) {
                             ThundernetClient.logout()
@@ -115,8 +152,26 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun openPlayer(item: StreamItem) {
-        val ids = ArrayList(lastItems.map { it.id })
+    /** Muestra la lista En Vivo, oculta Ajustes. */
+    private fun showLive() {
+        settingsView.visibility = View.GONE
+        swipe.visibility = View.VISIBLE
+    }
+
+    /** Muestra Ajustes con versión y conteo del respaldo. */
+    private fun showSettings() {
+        swipe.visibility = View.GONE
+        settingsView.visibility = View.VISIBLE
+        updateSettings()
+    }
+
+    private fun updateSettings() {
+        settingsVersion.text = getString(R.string.app_version, BuildConfig.VERSION_NAME)
+        val count = ChannelBackup.load().size
+        settingsBackupCount.text = getString(R.string.backup_count, count)
+    }
+
+    private fun openPlayer(item: StreamItem) {        val ids = ArrayList(lastItems.map { it.id })
         val titles = ArrayList(lastItems.map { it.title })
         val index = lastItems.indexOfFirst { it.id == item.id }.coerceAtLeast(0)
         startActivity(

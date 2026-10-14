@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tema bplay v3.0: azul marino oscuro + naranja (estilo LVBP Stream). -->
+<resources>
+    <color name="background">#FF0A0E27</color>
+    <color name="surface">#FF141B3D</color>
+    <color name="accent">#FFFF7A1A</color>
+    <color name="live_red">#FFE30613</color>
+    <color name="text_primary">#FFFFFFFF</color>
+    <color name="text_secondary">#FF9AA3B8</color>
+    <color name="ic_launcher_background">#FF0A0E27</color>
+</resources>

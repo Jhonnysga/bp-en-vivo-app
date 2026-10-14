@@ -3,6 +3,7 @@ package com.jhonnysga.bpenvivo
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
@@ -37,12 +38,14 @@ class StreamAdapter(private val onClick: (StreamItem) -> Unit) :
         private val thumb: ImageView = view.findViewById(R.id.thumb)
         private val title: TextView = view.findViewById(R.id.title)
         private val channel: TextView = view.findViewById(R.id.channel)
+        private val watchButton: Button = view.findViewById(R.id.watch_button)
         private var item: StreamItem? = null
 
         init {
             view.isFocusable = true
             view.isClickable = true
             view.setOnClickListener { item?.let(onClick) }
+            watchButton.setOnClickListener { item?.let(onClick) }
         }
 
         fun bind(s: StreamItem) {

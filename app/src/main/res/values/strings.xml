@@ -8,6 +8,13 @@
     <string name="refresh">⟳ Actualizar</string>
     <string name="refreshing">Actualizando…</string>
     <string name="live_badge">EN VIVO</string>
+    <string name="watch_live">Ver en vivo</string>
+    <string name="nav_live">En Vivo</string>
+    <string name="nav_settings">Ajustes</string>
+    <string name="settings_title">Ajustes</string>
+    <string name="clear_backup">Borrar respaldo</string>
+    <string name="backup_count">Canales respaldados: %1$d</string>
+    <string name="app_version">Versión %1$s</string>
     <string name="thumb_desc">Miniatura de la transmisión</string>
     <string name="tv_row_live">En vivo ahora</string>
     <string name="error_playback">No se pudo reproducir la transmisión</string>
@@ -16,6 +23,5 @@
     <string name="status_buffering">Cargando…</string>
     <string name="status_reconnecting">Señal interrumpida, reconectando… (%1$d)</string>
     <string name="quality_title">Calidad de video</string>
-    <string name="quality_auto_720">Automática (hasta 720p)</string>
-    <string name="quality_auto_1080">Automática (hasta 1080p)</string>
+    <string name="quality_auto">Automático</string>
 </resources>

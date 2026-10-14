@@ -6,6 +6,7 @@ import android.app.Application
 class BplayApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        ChannelBackup.init(this)
         ThundernetClient.init(this)
     }
 }

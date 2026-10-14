@@ -82,6 +82,8 @@ object DailymotionClient {
                 )
             )
         }
+        // Respaldo: guarda los IDs descubiertos para usarlos si el API falla.
+        ChannelBackup.save(out)
         return out
     }
 

@@ -51,14 +51,12 @@ import com.jhonnysga.bpenvivo.MainActivity.Source
 class PlayerActivity : AppCompatActivity() {
 
     companion object {
-        /** Tope por defecto: 720p (2.18 Mbps), estable en el enlace actual. */
-        private const val MAX_VIDEO_BITRATE = 3_000_000
         /** Estimación inicial para no arrancar en la variante más pesada. */
         private const val INITIAL_BITRATE_ESTIMATE = 2_000_000L
         private const val MAX_RETRIES = 8
         private const val RETRY_BASE_MS = 2_000L
         private const val RETRY_MAX_MS = 30_000L
-        private const val PREF_MAX_BITRATE = "max_video_bitrate"
+        private const val PREF_QUALITY = "video_quality"
         /** Tiempo sin interacción antes de ocultar título y botón de calidad. */
         private const val OVERLAY_HIDE_MS = 5_000L
         /** Segundos que el banner de canal queda visible al zapear. */
@@ -262,9 +260,10 @@ class PlayerActivity : AppCompatActivity() {
             .setInitialBitrateEstimate(INITIAL_BITRATE_ESTIMATE)
             .build()
         trackSelector = DefaultTrackSelector(this).apply {
+            // La calidad manual se aplica cuando el diálogo elige pista;
+            // aquí solo se deja el adaptativo libre (Automático por defecto).
             setParameters(
                 buildUponParameters()
-                    .setMaxVideoBitrate(currentMaxBitrate())
                     .setAllowVideoMixedMimeTypeAdaptiveness(true)
                     .build()
             )
@@ -371,30 +370,77 @@ class PlayerActivity : AppCompatActivity() {
         exo.play()
     }
 
-    /** Tope de calidad elegido por el usuario (por defecto 720p). */
-    private fun currentMaxBitrate(): Int {
-        return getPreferences(MODE_PRIVATE).getInt(PREF_MAX_BITRATE, MAX_VIDEO_BITRATE)
+    /** Calidad elegida por el usuario: "auto" o altura en píxeles (ej. 720). */
+    private fun currentQuality(): String {
+        return getPreferences(MODE_PRIVATE).getString(PREF_QUALITY, "auto") ?: "auto"
     }
 
     private fun updateQualityLabel() {
-        qualityButton.text = if (currentMaxBitrate() >= 6_000_000) "⚙ 1080p" else "⚙ 720p"
+        val q = currentQuality()
+        qualityButton.text = if (q == "auto") "⚙ Auto" else "⚙ ${q}p"
     }
 
-    /** Diálogo para cambiar entre 720p (estable) y 1080p. */
+    /**
+     * Diálogo de calidad: Automático + las variantes reales del stream.
+     * Funciona con táctil (móvil) y con D-pad (TV).
+     */
     private fun showQualityDialog() {
-        val options = arrayOf(
-            getString(R.string.quality_auto_720),
-            getString(R.string.quality_auto_1080)
-        )
-        val checked = if (currentMaxBitrate() >= 6_000_000) 1 else 0
+        val exo = player ?: return
+        val ts = trackSelector ?: return
+        val mapped = ts.currentMappedTrackInfo ?: return
+
+        var videoRenderer = -1
+        for (i in 0 until mapped.rendererCount) {
+            if (exo.getRendererType(i) == androidx.media3.common.C.TRACK_TYPE_VIDEO) {
+                videoRenderer = i
+                break
+            }
+        }
+        if (videoRenderer == -1) return
+
+        data class Opt(val group: Int, val track: Int, val height: Int, val label: String)
+        val opts = mutableListOf(Opt(-1, -1, -1, getString(R.string.quality_auto)))
+        val seen = mutableSetOf<Int>()
+        val groups = mapped.getTrackGroups(videoRenderer)
+        for (g in 0 until groups.length) {
+            val group = groups.get(g)
+            for (t in 0 until group.length) {
+                val h = group.getFormat(t).height
+                if (h > 0 && seen.add(h)) opts.add(Opt(g, t, h, "${h}p"))
+            }
+        }
+        opts.sortByDescending { it.height }
+
+        val labels = opts.map { it.label }.toTypedArray()
+        val cur = currentQuality()
+        val checked = opts.indexOfFirst {
+            if (cur == "auto") it.height == -1 else it.height.toString() == cur
+        }.coerceAtLeast(0)
+
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(R.string.quality_title)
-            .setSingleChoiceItems(options, checked) { dialog, which ->
-                val cap = if (which == 1) Int.MAX_VALUE else MAX_VIDEO_BITRATE
-                getPreferences(MODE_PRIVATE).edit().putInt(PREF_MAX_BITRATE, cap).apply()
-                trackSelector?.setParameters(
-                    trackSelector!!.buildUponParameters().setMaxVideoBitrate(cap).build()
-                )
+            .setSingleChoiceItems(labels, checked) { dialog, which ->
+                val opt = opts[which]
+                val params = ts.buildUponParameters()
+                if (opt.height == -1) {
+                    // Automático: sin overrides, el adaptativo elige.
+                    params.setTrackSelectionOverrides(
+                        androidx.media3.common.TrackSelectionOverrides.EMPTY
+                    ).setMaxVideoBitrate(Int.MAX_VALUE)
+                    getPreferences(MODE_PRIVATE).edit().putString(PREF_QUALITY, "auto").apply()
+                } else {
+                    val group = groups.get(opt.group)
+                    val override = androidx.media3.exoplayer.trackselection.TrackSelectionOverride(
+                        group, opt.track
+                    )
+                    params.setTrackSelectionOverrides(
+                        androidx.media3.common.TrackSelectionOverrides.Builder()
+                            .addOverride(override).build()
+                    )
+                    getPreferences(MODE_PRIVATE).edit()
+                        .putString(PREF_QUALITY, opt.height.toString()).apply()
+                }
+                ts.setParameters(params.build())
                 updateQualityLabel()
                 dialog.dismiss()
             }
