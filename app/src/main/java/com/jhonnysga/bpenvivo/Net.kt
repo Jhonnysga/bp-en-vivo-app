@@ -46,14 +46,16 @@ object Net {
     private val dohSecondary = doh("https://dns.google/dns-query")
 
     /** DNS: sistema primero, DoH de respaldo si el operador falla. */
-    private val resilientDns = Dns { hostname ->
-        try {
-            Dns.SYSTEM.lookup(hostname)
-        } catch (e: UnknownHostException) {
+    private val resilientDns = object : Dns {
+        override fun lookup(hostname: String): List<InetAddress> {
             try {
-                dohPrimary.lookup(hostname)
-            } catch (_: Exception) {
-                dohSecondary.lookup(hostname)
+                return Dns.SYSTEM.lookup(hostname)
+            } catch (e: UnknownHostException) {
+                try {
+                    return dohPrimary.lookup(hostname)
+                } catch (_: Exception) {
+                    return dohSecondary.lookup(hostname)
+                }
             }
         }
     }
