@@ -57,6 +57,14 @@ class TvBrowseFragment : BrowseSupportFragment() {
     }
 
     private fun load() {
+        refresh()
+    }
+
+    /**
+     * Recarga la lista de canales desde Dailymotion.
+     * onDone se ejecuta en el hilo UI al terminar.
+     */
+    fun refresh(onDone: () -> Unit = {}) {
         Thread {
             // Sin PC: la lista sale directo de Dailymotion.
             val items = runCatching { DailymotionClient.fetchLive() }
@@ -74,6 +82,7 @@ class TvBrowseFragment : BrowseSupportFragment() {
                         Toast.LENGTH_LONG
                     ).show()
                 }
+                onDone()
             }
         }.start()
     }

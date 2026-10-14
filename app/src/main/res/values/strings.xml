@@ -4,6 +4,8 @@
     <string name="empty_live">No hay transmisiones en vivo en este momento</string>
     <string name="error_load">No se pudo cargar la lista: %1$s</string>
     <string name="retry">Reintentar</string>
+    <string name="refresh">⟳ Actualizar</string>
+    <string name="refreshing">Actualizando…</string>
     <string name="live_badge">EN VIVO</string>
     <string name="thumb_desc">Miniatura de la transmisión</string>
     <string name="tv_row_live">En vivo ahora</string>

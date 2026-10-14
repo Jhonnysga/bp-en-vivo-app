@@ -25,6 +25,8 @@ resuelve en el propio dispositivo.
 - Al cambiar de canal (y al arrancar) aparece un **banner profesional**
   con el número del canal, su nombre y la pastilla EN VIVO; se
   desvanece solo a los 4 segundos.
+- Botón **⟳ Actualizar** arriba a la derecha (navegable con el D-pad)
+  para recargar la lista de canales sin salir de la app.
 
 ## Compilación automática (GitHub Actions)
 

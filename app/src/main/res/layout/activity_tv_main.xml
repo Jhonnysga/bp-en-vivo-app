@@ -1,6 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/tv_container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background" />
+    android:background="@color/background">
+
+    <FrameLayout
+        android:id="@+id/tv_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Botón Actualizar: visible siempre, navegable con el D-pad. -->
+    <Button
+        android:id="@+id/tv_refresh"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="20dp"
+        android:layout_marginEnd="28dp"
+        android:background="@drawable/banner_background"
+        android:elevation="8dp"
+        android:focusable="true"
+        android:paddingStart="18dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="10dp"
+        android:text="@string/refresh"
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+</FrameLayout>
