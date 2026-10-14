@@ -228,7 +228,7 @@ object ThundernetClient {
                 id = "tn:$id",
                 title = c.optString("name").ifBlank { id },
                 thumbnail = c.optString("logoUrl").takeIf { it.isNotBlank() },
-                channel = c.optString("categoryName").takeIf { it.isNotBlank() } ?: "Thundernet",
+                channel = c.optString("categoryName").takeIf { it.isNotBlank() } ?: "TruenoTv",
                 logo = null
             )
         }

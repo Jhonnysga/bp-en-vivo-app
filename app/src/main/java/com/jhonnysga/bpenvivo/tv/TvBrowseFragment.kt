@@ -110,14 +110,14 @@ class TvBrowseFragment : BrowseSupportFragment() {
                     tnRow.add(
                         StreamItem(
                             id = LOGIN_CARD_ID,
-                            title = "Iniciar sesión en Thundernet",
+                            title = "Iniciar sesión en TruenoTv",
                             thumbnail = null,
                             channel = "TV GO",
                             logo = null
                         )
                     )
                 }
-                rowsAdapter.add(ListRow(HeaderItem("Thundernet"), tnRow))
+                rowsAdapter.add(ListRow(HeaderItem("TruenoTv"), tnRow))
                 if (beisbolItems.isEmpty() && thunderItems.isEmpty()) {
                     Toast.makeText(requireContext(), R.string.empty_live, Toast.LENGTH_LONG).show()
                 }
