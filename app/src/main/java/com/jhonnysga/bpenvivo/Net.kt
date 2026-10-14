@@ -60,12 +60,16 @@ object Net {
         }
     }
 
-    /** Cliente compartido: lo usan la API, el extractor y el reproductor. */
-    val client: OkHttpClient = OkHttpClient.Builder()
+    /** Cliente con cookies (para la sesión del player autorizado). */
+    fun newBuilder(): OkHttpClient.Builder = baseBuilder()
+
+    private fun baseBuilder(): OkHttpClient.Builder = OkHttpClient.Builder()
         .dns(resilientDns)
         .connectTimeout(TIMEOUT_S, TimeUnit.SECONDS)
         .readTimeout(TIMEOUT_S, TimeUnit.SECONDS)
-        .build()
+
+    /** Cliente compartido: lo usan la API, el extractor y el reproductor. */
+    val client: OkHttpClient = baseBuilder().build()
 
     /** GET que devuelve el cuerpo como texto. Lanza IOException si falla. */
     @Throws(IOException::class)

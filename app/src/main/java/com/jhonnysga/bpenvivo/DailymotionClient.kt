@@ -1,60 +1,83 @@
 package com.jhonnysga.bpenvivo
 
+import okhttp3.Cookie
+import okhttp3.CookieJar
+import okhttp3.HttpUrl
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.json.JSONObject
 import java.io.IOException
+import java.net.URLEncoder
 import java.net.UnknownHostException
+import kotlin.random.Random
 
 /**
  * Cliente Dailymotion on-device: la app pide y reproduce directo, sin
- * pasar por el PC. El token del stream queda atado a la IP del propio
- * teléfono/Fire TV, que es la que también reproduce.
+ * pasar por el PC. Replica el flujo probado del backend (canal bpenvivo,
+ * player autorizado xaetl): la IP que pide el stream es la misma que lo
+ * reproduce, como exige el token.
  *
- * Dos operaciones (llamar fuera del hilo principal):
- *  - fetchLive(): videos en vivo del canal BeisbolPlay.
- *  - extractStreamUrl(videoId): URL maestra HLS (.m3u8) del video.
+ * Descubrimiento: `GET api.dailymotion.com/user/bpenvivo/videos` con el
+ * campo `onair` (fuente de verdad de qué está al aire).
+ *
+ * Extracción (probada end-to-end):
+ *  1. Sesión: `GET geo.dailymotion.com/player/xaetl.html?video={id}`
+ *     con Referer beisbolplay.com → cookies `v1st` y `ts`.
+ *  2. Metadata: `GET geo.dailymotion.com/video/{id}.json` con los
+ *     parámetros del player autorizado (+ cookies) → `qualities.auto[0].url`.
+ *
+ * Llamar fuera del hilo principal.
  */
 object DailymotionClient {
 
-    /** Canal oficial de BeisbolPlay en Dailymotion. */
-    private const val CHANNEL = "beisbolplay"
+    /** Canal que publica los en vivo (el mismo del backend). */
+    private const val CHANNEL = "bpenvivo"
     private const val API_BASE = "https://api.dailymotion.com"
-    private const val METADATA_URL = "https://www.dailymotion.com/player/metadata/video/"
+    private const val GEO_BASE = "https://geo.dailymotion.com"
+
+    /** Player autorizado y publisher de beisbolplay.com (como el backend). */
+    private const val PLAYER_ID = "xaetl"
+    private const val PUBLISHER_ID = "x2ae5b7"
 
     const val USER_AGENT =
         "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 " +
             "(KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36"
 
-    /**
-     * Referer enviado al pedir el .m3u8 y los segmentos. Si un juego no
-     * abre, este es el primer valor a ajustar.
-     */
-    const val REFERER = "https://www.dailymotion.com/"
+    /** Referer autorizado (el que usa el backend en producción). */
+    const val REFERER = "https://www.beisbolplay.com/"
 
-    // Timeouts: los maneja Net (15 s).
+    private val jar = MemoryCookieJar()
+
+    /** Cliente de extracción con jar de cookies propio. */
+    private val extractionClient: OkHttpClient by lazy {
+        Net.newBuilder().cookieJar(jar).build()
+    }
 
     /**
-     * Lista los videos marcados en vivo por la API y confirma uno por uno
-     * contra el metadata (la API a veces marca en vivo canales apagados).
-     * Solo los que traen `qualities` están transmitiendo de verdad.
+     * Videos del canal bpenvivo que están al aire ahora mismo,
+     * según el campo `onair` de la API (igual que el backend).
      */
+    @Throws(IOException::class)
     fun fetchLive(): List<StreamItem> {
-        val url = "$API_BASE/user/$CHANNEL/videos" +
-            "?live=true&fields=id,title,thumbnail_480_url&limit=20"
-        val body = httpGet(url)
+        val body = try {
+            Net.get("$API_BASE/user/$CHANNEL/videos?fields=id,title,onair,thumbnail_480_url&limit=20")
+        } catch (e: UnknownHostException) {
+            throw IOException("Sin conexión a internet o DNS bloqueado")
+        }
         val list = JSONObject(body).optJSONArray("list") ?: return emptyList()
         val out = ArrayList<StreamItem>()
         for (i in 0 until list.length()) {
             val o = list.optJSONObject(i) ?: continue
+            if (!o.optBoolean("onair", false)) continue
             val id = o.optString("id")
             if (id.isBlank()) continue
-            // Confirmar que realmente transmite antes de mostrarlo.
-            if (!isActuallyLive(id)) continue
+            val title = o.optString("title").ifBlank { id }
             out.add(
                 StreamItem(
                     id = id,
-                    title = o.optString("title").ifBlank { id },
+                    title = title,
                     thumbnail = o.optString("thumbnail_480_url").takeIf { it.isNotBlank() },
-                    channel = "BeisbolPlay",
+                    channel = channelName(title),
                     logo = null
                 )
             )
@@ -62,80 +85,98 @@ object DailymotionClient {
         return out
     }
 
-    /** true si el metadata del video trae URLs de stream (está al aire). */
-    private fun isActuallyLive(videoId: String): Boolean {
-        return try {
-            extractStreamUrl(videoId).isNotBlank()
-        } catch (_: Exception) {
-            false
+    /** Nombre del canal según el título (igual que el backend). */
+    private fun channelName(title: String): String? {
+        val t = title.uppercase()
+        return when {
+            "1BN" in t -> "1 Baseball Network Internacional"
+            "BEISBOLPLAY" in t || "BP" in t -> "BEISBOLPLAY"
+            else -> null
         }
     }
 
     /**
-     * Extrae la URL maestra HLS del video desde el metadata del player.
-     * Estrategia defensiva (el formato puede variar):
-     *  1. qualities.auto -> primer .m3u8
-     *  2. mayor calidad numérica con .m3u8
-     *  3. barrido con regex sobre el JSON crudo
-     *
-     * Lanza IOException si el canal está apagado o no hay stream.
+     * URL maestra HLS del video, con sesión válida del player autorizado.
+     * Lanza IOException si no hay stream.
      */
     @Throws(IOException::class)
     fun extractStreamUrl(videoId: String): String {
-        val body = httpGet("$METADATA_URL$videoId")
-        val json = JSONObject(body)
-
-        json.optJSONObject("error")?.let {
-            throw IOException(it.optString("title").ifBlank { "Transmisión no disponible" })
+        // 1. Sesión del player autorizado (deja v1st/ts en el jar).
+        val sessionReq = Request.Builder()
+            .url("$GEO_BASE/player/$PLAYER_ID.html?video=$videoId")
+            .header("User-Agent", USER_AGENT)
+            .header("Referer", REFERER)
+            .build()
+        extractionClient.newCall(sessionReq).execute().use { resp ->
+            resp.body?.close()
         }
 
-        val qualities = json.optJSONObject("qualities")
-        if (qualities != null) {
-            // 1. auto (suele ser el master m3u8)
-            firstM3u8(qualities.optJSONArray("auto"))?.let { return it }
-            // 2. mayor calidad numérica disponible
-            val numericKeys = qualities.keys().asSequence()
-                .mapNotNull { it.toIntOrNull() }
-                .sortedDescending()
-            for (k in numericKeys) {
-                firstM3u8(qualities.optJSONArray(k.toString()))?.let { return it }
+        // 2. Metadata con los parámetros del player autorizado.
+        val v1st = jar.cookieNamed("v1st") ?: ("rnd-" + randomHex(16))
+        val ts = jar.cookieNamed("ts") ?: Random.nextInt(100000, 999999).toString()
+        val params = listOf(
+            "legacy" to "true",
+            "embedder" to REFERER,
+            "geo" to "1",
+            "player-id" to PLAYER_ID,
+            "publisher-id" to PUBLISHER_ID,
+            "locale" to "es",
+            "dmV1st" to v1st,
+            "dmTs" to ts,
+            "is_native_app" to "0",
+            "dmViewId" to randomStr(20),
+            "parallelCalls" to "1"
+        ).joinToString("&") { (k, v) ->
+            "$k=${URLEncoder.encode(v, "UTF-8")}"
+        }
+        val metaReq = Request.Builder()
+            .url("$GEO_BASE/video/$videoId.json?$params")
+            .header("User-Agent", USER_AGENT)
+            .header("Referer", REFERER)
+            .header("Origin", REFERER)
+            .build()
+        extractionClient.newCall(metaReq).execute().use { resp ->
+            if (!resp.isSuccessful) throw IOException("HTTP ${resp.code}")
+            val body = resp.body?.string().orEmpty()
+            val url = JSONObject(body)
+                .optJSONObject("qualities")
+                ?.optJSONArray("auto")
+                ?.optJSONObject(0)
+                ?.optString("url")
+                .orEmpty()
+                .replace("\\/", "/")
+            if (url.isBlank() || ".m3u8" !in url) {
+                throw IOException("No se encontró el stream del video")
+            }
+            return url
+        }
+    }
+
+    private fun randomStr(len: Int): String {
+        val chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+        return (1..len).map { chars[Random.nextInt(chars.length)] }.joinToString("")
+    }
+
+    private fun randomHex(len: Int): String {
+        val chars = "0123456789abcdef"
+        return (1..len).map { chars[Random.nextInt(chars.length)] }.joinToString("")
+    }
+
+    /** Jar de cookies en memoria con lectura por nombre. */
+    private class MemoryCookieJar : CookieJar {
+        private val store = mutableListOf<Cookie>()
+
+        override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
+            for (c in cookies) {
+                store.removeAll { it.name == c.name && it.domain == c.domain }
+                store.add(c)
             }
         }
 
-        // 3. último recurso: cualquier .m3u8 en el JSON
-        Regex("""https?:\\?/\\?/[^"'\s\\]*\.m3u8[^"'\s\\]*""")
-            .find(body)?.value
-            ?.replace("\\/", "/")
-            ?.let { return it }
+        override fun loadForRequest(url: HttpUrl): List<Cookie> =
+            store.filter { it.matches(url) }
 
-        throw IOException("No se encontró el stream del video")
-    }
-
-    /** Primera URL .m3u8 dentro de un arreglo de calidades. */
-    private fun firstM3u8(arr: org.json.JSONArray?): String? {
-        if (arr == null) return null
-        for (i in 0 until arr.length()) {
-            val url = arr.optJSONObject(i)?.optString("url").orEmpty()
-            if (url.contains(".m3u8")) return url.replace("\\/", "/")
-        }
-        return null
-    }
-
-    @Throws(IOException::class)
-    private fun httpGet(url: String): String {
-        return try {
-            Net.get(
-                url,
-                mapOf(
-                    "User-Agent" to USER_AGENT,
-                    "Referer" to REFERER,
-                    "Accept" to "application/json"
-                )
-            )
-        } catch (e: UnknownHostException) {
-            // Ni el DNS del sistema ni el de respaldo resolvieron:
-            // sin internet o bloqueo total.
-            throw IOException("Sin conexión a internet o DNS bloqueado")
-        }
+        fun cookieNamed(name: String): String? =
+            store.firstOrNull { it.name == name }?.value
     }
 }

@@ -6,15 +6,17 @@ reproduce a pantalla completa. Funciona en teléfonos y en Android TV /
 Fire TV Stick. **No depende de ningún servidor ni de la PC**: todo se
 resuelve en el propio dispositivo.
 
-## Cómo funciona (v2.0)
+## Cómo funciona (v2.3)
 
 - La lista de transmisiones sale directo de la API de Dailymotion
-  (videos en vivo del canal `beisbolplay`); cada candidato se confirma
-  contra el metadata del player antes de mostrarse.
-- Al elegir una, la app extrae la URL maestra HLS (`.m3u8`) del video
-  en el propio dispositivo y la reproduce con ExoPlayer (Media3)
-  enviando los headers que exige Dailymotion (`Referer`). La IP que
-  pide el stream es la misma que lo reproduce, como exige el token.
+  (videos del canal `bpenvivo` con el campo `onair` — la misma fuente
+  del backend).
+- Al elegir una, la app replica el flujo del backend en el propio
+  dispositivo: sesión del player autorizado (`xaetl`, cookies `v1st`/`ts`)
+  y metadata de `geo.dailymotion.com` con los parámetros del player,
+  de donde sale la URL maestra HLS (`.m3u8`). Se reproduce con ExoPlayer
+  enviando `Referer: https://www.beisbolplay.com/`. La IP que pide el
+  stream es la misma que lo reproduce, como exige el token.
 - Cada reintento automático extrae una URL fresca (los tokens vencen).
 
 ## Red resiliente (v2.2)
