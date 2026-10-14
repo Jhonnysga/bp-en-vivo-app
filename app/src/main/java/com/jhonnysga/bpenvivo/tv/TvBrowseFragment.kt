@@ -9,6 +9,7 @@ import androidx.leanback.widget.HeaderItem
 import androidx.leanback.widget.ListRow
 import androidx.leanback.widget.ListRowPresenter
 import androidx.leanback.widget.OnItemViewClickedListener
+import com.jhonnysga.bpenvivo.BuildConfig
 import com.jhonnysga.bpenvivo.DailymotionClient
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_CHANNEL_IDS
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_CHANNEL_INDEX
