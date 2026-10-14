@@ -65,6 +65,10 @@ object ThundernetClient {
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
+    /** Nombre de la app según el sabor (bplay / TruenoTv). */
+    private fun appName(): String =
+        if (BuildConfig.FLAVOR == "truenotv") "TruenoTv" else "bplay"
+
     var sessionToken: String?
         get() = prefs().getString(KEY_TOKEN, null)
         private set(v) = prefs().edit().putString(KEY_TOKEN, v).apply()
@@ -93,7 +97,7 @@ object ThundernetClient {
             put("email", email)
             put("password", password)
             put("manualProfileManagement", true)
-            put("model", "bplay Android ${BuildConfig.VERSION_NAME}")
+            put("model", "${appName()} Android ${BuildConfig.VERSION_NAME}")
         }.toString().toRequestBody("application/json".toMediaType())
 
         val req = Request.Builder()
@@ -184,7 +188,24 @@ object ThundernetClient {
         }
         Net.client.newCall(builder.build()).execute().use { resp ->
             val body = resp.body?.string().orEmpty()
-            if (resp.code == 401) throw AuthException("UNAUTHORIZED")
+            if (resp.code == 401) {
+                // El servidor devuelve 401 CON cuerpo JSON (errorCode/message):
+                // no descartarlo, el mensaje real es lo que debe ver el usuario.
+                val err = runCatching { JSONObject(body) }.getOrNull()
+                val code = err?.optString("errorCode").orEmpty()
+                val msg = err?.optString("message").orEmpty()
+                if ("geo" in code.lowercase() || "geo" in msg.lowercase()) {
+                    throw GeoBlockedException()
+                }
+                throw AuthException(
+                    when {
+                        code == "WG0008" -> "Credenciales inválidas"
+                        msg.isNotBlank() -> msg
+                        code.isNotBlank() -> "Error $code"
+                        else -> "UNAUTHORIZED"
+                    }
+                )
+            }
             if (!resp.isSuccessful) throw IOException("HTTP ${resp.code}")
             return JSONObject(body)
         }
