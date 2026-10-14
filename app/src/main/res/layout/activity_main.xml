@@ -9,41 +9,12 @@
         android:layout_height="match_parent"
         android:background="@color/background">
 
-        <!-- Selector de fuente: BéisbolPlay (Dailymotion) / Thundernet -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:padding="8dp">
-
-            <Button
-                android:id="@+id/source_beisbol"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:text="BéisbolPlay"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/source_thundernet"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:text="TruenoTv"
-                android:textStyle="bold" />
-
-        </LinearLayout>
-
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/list"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:clipToPadding="false"
-            android:padding="8dp"
-            android:paddingTop="64dp" />
+            android:padding="8dp" />
 
         <TextView
             android:id="@+id/empty_view"

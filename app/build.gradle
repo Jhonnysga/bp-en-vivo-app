@@ -11,10 +11,26 @@ android {
         applicationId 'com.jhonnysga.bpenvivo'
         minSdk 24
         targetSdk 35
-        versionCode 12
-        versionName '2.4.1'
+        versionCode 13
+        versionName '2.5.0'
         // v2.0: sin backend. La app extrae los streams directo de
         // Dailymotion en el dispositivo (misma IP pide y reproduce).
+    }
+
+    // Dos APKs del mismo código: bplay (BéisbolPlay) y truenotv
+    // (Thundernet TV GO). Cada sabor muestra solo su fuente.
+    flavorDimensions "app"
+    productFlavors {
+        bplay {
+            dimension "app"
+            applicationId 'com.jhonnysga.bpenvivo'
+            manifestPlaceholders = [appName: "bplay"]
+        }
+        truenotv {
+            dimension "app"
+            applicationId 'com.jhonnysga.truenotv'
+            manifestPlaceholders = [appName: "TruenoTv"]
+        }
     }
 
     buildTypes {

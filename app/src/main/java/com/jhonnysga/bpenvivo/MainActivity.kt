@@ -13,13 +13,18 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 
 /**
  * Pantalla principal (teléfonos/tablets): lista de transmisiones en vivo
- * con "tirar para actualizar". Dos fuentes: BéisbolPlay (Dailymotion,
- * sin cuenta) y Thundernet TV GO (con login, Widevine). Tocar una abre
- * el reproductor.
+ * con "tirar para actualizar". Cada sabor muestra solo su fuente:
+ * bplay → BéisbolPlay (Dailymotion, sin cuenta);
+ * truenotv → TruenoTv (Thundernet, con login, Widevine).
+ * Tocar una abre el reproductor.
  */
 class MainActivity : AppCompatActivity() {
 
     enum class Source { BEISBOLPLAY, THUNDERNET }
+
+    /** Fuente fija según el sabor compilado. */
+    private val source: Source =
+        if (BuildConfig.FLAVOR == "truenotv") Source.THUNDERNET else Source.BEISBOLPLAY
 
     private lateinit var swipe: SwipeRefreshLayout
     private lateinit var list: RecyclerView
@@ -27,18 +32,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var errorView: View
     private lateinit var errorText: TextView
     private lateinit var retryButton: Button
-    private lateinit var sourceBeisbol: Button
-    private lateinit var sourceThundernet: Button
 
     private val adapter = StreamAdapter { openPlayer(it) }
     private var lastItems: List<StreamItem> = emptyList()
-    private var source: Source = Source.BEISBOLPLAY
 
     private val loginLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == RESULT_OK) load()
-        else selectSource(Source.BEISBOLPLAY)
+    ) {
+        // Al volver del login (éxito o cancelado), recargar:
+        // load() muestra la lista o la vista "inicia sesión".
+        load()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,37 +54,32 @@ class MainActivity : AppCompatActivity() {
         errorView = findViewById(R.id.error_view)
         errorText = findViewById(R.id.error_text)
         retryButton = findViewById(R.id.retry_button)
-        sourceBeisbol = findViewById(R.id.source_beisbol)
-        sourceThundernet = findViewById(R.id.source_thundernet)
 
         list.layoutManager = LinearLayoutManager(this)
         list.adapter = adapter
         swipe.setOnRefreshListener { load() }
-        retryButton.setOnClickListener { load() }
-        sourceBeisbol.setOnClickListener { selectSource(Source.BEISBOLPLAY) }
-        sourceThundernet.setOnClickListener { selectSource(Source.THUNDERNET) }
-
-        updateSourceButtons()
-        load()
-    }
-
-    private fun selectSource(s: Source) {
-        if (s == Source.THUNDERNET && !ThundernetClient.isLoggedIn()) {
-            loginLauncher.launch(Intent(this, ThundernetLoginActivity::class.java))
-            return
+        retryButton.setOnClickListener {
+            if (source == Source.THUNDERNET && !ThundernetClient.isLoggedIn()) {
+                loginLauncher.launch(Intent(this, ThundernetLoginActivity::class.java))
+            } else {
+                load()
+            }
         }
-        source = s
-        updateSourceButtons()
-        load()
-    }
 
-    private fun updateSourceButtons() {
-        val active = source == Source.BEISBOLPLAY
-        sourceBeisbol.alpha = if (active) 1f else 0.5f
-        sourceThundernet.alpha = if (!active) 1f else 0.5f
+        load()
     }
 
     private fun load() {
+        // TruenoTv sin sesión: pedir login en vez de cargar canales.
+        if (source == Source.THUNDERNET && !ThundernetClient.isLoggedIn()) {
+            swipe.isRefreshing = false
+            list.visibility = View.GONE
+            emptyView.visibility = View.GONE
+            errorText.text = getString(R.string.error_login_required)
+            errorView.visibility = View.VISIBLE
+            loginLauncher.launch(Intent(this, ThundernetLoginActivity::class.java))
+            return
+        }
         swipe.isRefreshing = true
         errorView.visibility = View.GONE
         Thread {
@@ -102,12 +100,10 @@ class MainActivity : AppCompatActivity() {
                         emptyView.visibility = if (empty) View.VISIBLE else View.GONE
                     }
                     .onFailure { e ->
-                        // Sesión Thundernet vencida sin remedio: pedir login
+                        // Sesión TruenoTv vencida sin remedio: pedir login
                         if (source == Source.THUNDERNET && e is ThundernetClient.AuthException) {
                             ThundernetClient.logout()
-                            loginLauncher.launch(
-                                Intent(this, ThundernetLoginActivity::class.java)
-                            )
+                            load()
                             return@runOnUiThread
                         }
                         list.visibility = View.GONE

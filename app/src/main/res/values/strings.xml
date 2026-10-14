@@ -3,6 +3,7 @@
     <string name="app_name">bplay</string>
     <string name="empty_live">No hay transmisiones en vivo en este momento</string>
     <string name="error_load">No se pudo cargar la lista: %1$s</string>
+    <string name="error_login_required">Inicia sesión en TruenoTv para ver los canales</string>
     <string name="retry">Reintentar</string>
     <string name="refresh">⟳ Actualizar</string>
     <string name="refreshing">Actualizando…</string>
