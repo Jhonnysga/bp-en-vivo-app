@@ -381,9 +381,9 @@ class PlayerActivity : AppCompatActivity() {
 
     /** Aplica la calidad a los parámetros: auto = sin restricción. */
     private fun applyQuality(
-        params: DefaultTrackSelector.ParametersBuilder,
+        params: DefaultTrackSelector.Parameters.Builder,
         quality: String
-    ): DefaultTrackSelector.ParametersBuilder {
+    ): DefaultTrackSelector.Parameters.Builder {
         val h = quality.toIntOrNull() ?: 0
         return if (h > 0) {
             params.setMaxVideoSize(Int.MAX_VALUE, h).setMinVideoSize(0, h)
