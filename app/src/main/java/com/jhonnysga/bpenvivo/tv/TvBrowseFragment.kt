@@ -9,10 +9,7 @@ import androidx.leanback.widget.HeaderItem
 import androidx.leanback.widget.ListRow
 import androidx.leanback.widget.ListRowPresenter
 import androidx.leanback.widget.OnItemViewClickedListener
-import com.jhonnysga.bpenvivo.ApiClient
-import com.jhonnysga.bpenvivo.BackendResolver
-import com.jhonnysga.bpenvivo.BuildConfig
-import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_BACKEND_URL
+import com.jhonnysga.bpenvivo.DailymotionClient
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_ID
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_TITLE
 import com.jhonnysga.bpenvivo.PlayerActivity
@@ -27,7 +24,6 @@ class TvBrowseFragment : BrowseSupportFragment() {
 
     private val rowsAdapter = ArrayObjectAdapter(ListRowPresenter())
     private val cardPresenter = TvCardPresenter()
-    @Volatile private var baseUrl: String = BuildConfig.BACKEND_URL
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,7 +38,6 @@ class TvBrowseFragment : BrowseSupportFragment() {
                     Intent(requireContext(), PlayerActivity::class.java).apply {
                         putExtra(EXTRA_STREAM_ID, item.id)
                         putExtra(EXTRA_STREAM_TITLE, item.title)
-                        putExtra(EXTRA_BACKEND_URL, baseUrl)
                     }
                 )
             }
@@ -53,8 +48,8 @@ class TvBrowseFragment : BrowseSupportFragment() {
 
     private fun load() {
         Thread {
-            baseUrl = BackendResolver.resolve(BuildConfig.BACKEND_URL)
-            val items = runCatching { ApiClient.fetchLive(baseUrl) }
+            // Sin PC: la lista sale directo de Dailymotion.
+            val items = runCatching { DailymotionClient.fetchLive() }
                 .getOrDefault(emptyList())
             activity?.runOnUiThread {
                 rowsAdapter.clear()
