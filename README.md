@@ -1,31 +1,30 @@
-# BéisbolPlay (APK)
+# bplay (APK)
 
-App Android para ver las transmisiones en vivo del backend «BéisbolPlay»,
-parecida a la app de BeisbolPlay: lista los partidos al aire y los reproduce
-a pantalla completa. Funciona en teléfonos y en Android TV / Fire TV Stick.
+App Android para ver las transmisiones en vivo de BeisbolPlay, con
+temática similar a la app oficial: lista los partidos al aire y los
+reproduce a pantalla completa. Funciona en teléfonos y en Android TV /
+Fire TV Stick. **No depende de ningún servidor ni de la PC**: todo se
+resuelve en el propio dispositivo.
 
-## Cómo funciona
+## Cómo funciona (v2.0)
 
-- La lista de transmisiones sale de `GET {BACKEND}/index.php?api=videos`
-  (JSON con `live`: id, título, miniatura, canal y logo).
-- Al elegir una, el reproductor (ExoPlayer / Media3) carga
-  `{BACKEND}/proxy.php?m3u8=<id>`, que devuelve la playlist maestra HLS.
-  El token del stream va atado a la IP del servidor, por eso todo el
-  tráfico de video pasa por el backend y la app nunca pide el `.m3u8`
-  directo al CDN.
+- La lista de transmisiones sale directo de la API de Dailymotion
+  (videos en vivo del canal `beisbolplay`); cada candidato se confirma
+  contra el metadata del player antes de mostrarse.
+- Al elegir una, la app extrae la URL maestra HLS (`.m3u8`) del video
+  en el propio dispositivo y la reproduce con ExoPlayer (Media3)
+  enviando los headers que exige Dailymotion (`Referer`). La IP que
+  pide el stream es la misma que lo reproduce, como exige el token.
+- Cada reintento automático extrae una URL fresca (los tokens vencen).
 
-## Dónde se configura la URL del backend
+## TV / Fire TV Stick
 
-En `app/build.gradle`, campo `buildConfigField`:
-
-```groovy
-buildConfigField("String", "BACKEND_URL", "\"https://jhon-pc.tailc7b9f2.ts.net\"")
-```
-
-Se expone como `BuildConfig.BACKEND_URL`. Para apuntar a otro servidor,
-cambia ese valor y vuelve a compilar. La app necesita alcanzar esa URL:
-en el teléfono y en el Fire TV Stick debe estar instalado y conectado
-**Tailscale** (misma red que el servidor).
+- En el reproductor, **arriba/abajo del D-pad cambia de canal**
+  (zapping con vuelta al inicio/fin). Solo zapea cuando los overlays
+  están ocultos; si están visibles, el D-pad navega la UI.
+- Al cambiar de canal (y al arrancar) aparece un **banner profesional**
+  con el número del canal, su nombre y la pastilla EN VIVO; se
+  desvanece solo a los 4 segundos.
 
 ## Compilación automática (GitHub Actions)
 
