@@ -26,8 +26,10 @@ import androidx.media3.ui.PlayerView
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_CHANNEL_IDS
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_CHANNEL_INDEX
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_CHANNEL_TITLES
+import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_SOURCE
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_ID
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_TITLE
+import com.jhonnysga.bpenvivo.MainActivity.Source
 
 /**
  * Reproductor a pantalla completa (teléfono y TV), optimizado para HLS en
@@ -86,6 +88,7 @@ class PlayerActivity : AppCompatActivity() {
 
     private var streamId: String = ""
     private var streamTitle: String = ""
+    private var source: Source = Source.BEISBOLPLAY
     /** Lista completa para zapear con el control (TV). */
     private var channelIds: List<String> = emptyList()
     private var channelTitles: List<String> = emptyList()
@@ -98,6 +101,8 @@ class PlayerActivity : AppCompatActivity() {
 
         streamId = intent.getStringExtra(EXTRA_STREAM_ID).orEmpty()
         streamTitle = intent.getStringExtra(EXTRA_STREAM_TITLE).orEmpty()
+        source = runCatching { Source.valueOf(intent.getStringExtra(EXTRA_SOURCE).orEmpty()) }
+            .getOrDefault(Source.BEISBOLPLAY)
         channelIds = intent.getStringArrayListExtra(EXTRA_CHANNEL_IDS).orEmpty()
         channelTitles = intent.getStringArrayListExtra(EXTRA_CHANNEL_TITLES).orEmpty()
         currentIndex = intent.getIntExtra(EXTRA_CHANNEL_INDEX, 0)
@@ -300,21 +305,44 @@ class PlayerActivity : AppCompatActivity() {
         showChannelBanner() // banner con el nombre del canal al arrancar y al zapear
         val gen = ++generation
         Thread {
-            val result = runCatching { DailymotionClient.extractStreamUrl(streamId) }
+            val result = runCatching {
+                when (source) {
+                    Source.BEISBOLPLAY -> ResolvedStream(
+                        DailymotionClient.extractStreamUrl(streamId), null, emptyMap()
+                    )
+                    Source.THUNDERNET -> ThundernetClient.getChannelStream(streamId).let {
+                        ResolvedStream(it.url, it.drmLicenseUrl, it.drmHeaders)
+                    }
+                }
+            }
             runOnUiThread {
                 if (gen != generation) return@runOnUiThread
                 result
-                    .onSuccess { m3u8 -> playUrl(m3u8) }
+                    .onSuccess { s -> playUrl(s) }
                     .onFailure { scheduleRetry() }
             }
         }.start()
     }
 
-    private fun playUrl(m3u8Url: String) {
-        val mediaItem = MediaItem.Builder()
-            .setUri(m3u8Url)
+    /** Stream resuelto con DRM Widevine opcional (Thundernet). */
+    private data class ResolvedStream(
+        val url: String,
+        val drmLicenseUrl: String?,
+        val drmHeaders: Map<String, String>
+    )
+
+    private fun playUrl(s: ResolvedStream) {
+        val itemBuilder = MediaItem.Builder()
+            .setUri(s.url)
             .setMimeType(MimeTypes.APPLICATION_M3U8)
-            .build()
+        // Widevine (Thundernet): licencia + headers del API.
+        if (!s.drmLicenseUrl.isNullOrBlank()) {
+            val drmBuilder = MediaItem.DrmConfiguration.Builder(androidx.media3.common.C.WIDEVINE_UUID)
+                .setLicenseUri(s.drmLicenseUrl)
+            if (s.drmHeaders.isNotEmpty()) drmBuilder.setLicenseRequestHeaders(s.drmHeaders)
+            itemBuilder.setDrmConfiguration(drmBuilder.build())
+        }
+        val mediaItem = itemBuilder.build()
         val exo = buildPlayer().also { player = it }
         exo.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {

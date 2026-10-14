@@ -26,6 +26,20 @@ dominios. La app usa OkHttp con doble resolución: primero el DNS del
 sistema y, si falla, DNS-over-HTTPS (Cloudflare/Google con IPs fijas).
 Aplica tanto a la API y al extractor como a la reproducción de video.
 
+## Thundernet TV GO (v2.4, sin PC)
+
+- Pestaña **Thundernet** en el teléfono; fila **Thundernet** en el TV.
+- Login con tu usuario/clave de Thundernet (se pide una vez y se guarda
+  cifrada en el dispositivo, jamás en el código). Requiere internet de
+  Venezuela (geoblock del servicio).
+- Canales en vivo, EPG y reproducción HLS con **Widevine** directo en
+  la app, con las macros `STPLX_*` resueltas en el dispositivo.
+
+Algunos operadores móviles fallan o bloquean el DNS para ciertos
+dominios. La app usa OkHttp con doble resolución: primero el DNS del
+sistema y, si falla, DNS-over-HTTPS (Cloudflare/Google con IPs fijas).
+Aplica tanto a la API y al extractor como a la reproducción de video.
+
 ## TV / Fire TV Stick
 
 - En el reproductor, **arriba/abajo del D-pad cambia de canal**

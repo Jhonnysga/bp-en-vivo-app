@@ -13,21 +13,27 @@ import com.jhonnysga.bpenvivo.DailymotionClient
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_CHANNEL_IDS
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_CHANNEL_INDEX
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_CHANNEL_TITLES
+import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_SOURCE
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_ID
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_TITLE
+import com.jhonnysga.bpenvivo.MainActivity.Source
 import com.jhonnysga.bpenvivo.PlayerActivity
 import com.jhonnysga.bpenvivo.R
 import com.jhonnysga.bpenvivo.StreamItem
+import com.jhonnysga.bpenvivo.ThundernetClient
+import com.jhonnysga.bpenvivo.ThundernetLoginActivity
 
 /**
- * Navegador Leanback: una fila "En vivo" con tarjetas por transmisión.
+ * Navegador Leanback: fila "BéisbolPlay" (Dailymotion) y fila "Thundernet".
  * Todo se maneja con el control remoto (D-pad).
  */
 class TvBrowseFragment : BrowseSupportFragment() {
 
     private val rowsAdapter = ArrayObjectAdapter(ListRowPresenter())
     private val cardPresenter = TvCardPresenter()
-    @Volatile private var lastItems: List<StreamItem> = emptyList()
+
+    private var beisbolItems: List<StreamItem> = emptyList()
+    private var thunderItems: List<StreamItem> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,22 +44,41 @@ class TvBrowseFragment : BrowseSupportFragment() {
 
         onItemViewClickedListener = OnItemViewClickedListener { _, item, _, _ ->
             if (item is StreamItem) {
-                val ids = ArrayList(lastItems.map { it.id })
-                val titles = ArrayList(lastItems.map { it.title })
-                val index = lastItems.indexOfFirst { it.id == item.id }.coerceAtLeast(0)
-                startActivity(
-                    Intent(requireContext(), PlayerActivity::class.java).apply {
-                        putExtra(EXTRA_STREAM_ID, item.id)
-                        putExtra(EXTRA_STREAM_TITLE, item.title)
-                        putStringArrayListExtra(EXTRA_CHANNEL_IDS, ids)
-                        putStringArrayListExtra(EXTRA_CHANNEL_TITLES, titles)
-                        putExtra(EXTRA_CHANNEL_INDEX, index)
-                    }
-                )
+                if (item.id == LOGIN_CARD_ID) {
+                    startActivity(Intent(requireContext(), ThundernetLoginActivity::class.java))
+                    return@OnItemViewClickedListener
+                }
+                openPlayer(item)
             }
         }
 
         load()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Al volver del login, recargar por si hay sesión nueva.
+        load()
+    }
+
+    private fun openPlayer(item: StreamItem) {
+        val items = if (item.id.startsWith("tn:")) thunderItems else beisbolItems
+        val ids = ArrayList(items.map { it.id })
+        val titles = ArrayList(items.map { it.title })
+        val index = items.indexOfFirst { it.id == item.id }.coerceAtLeast(0)
+        startActivity(
+            Intent(requireContext(), PlayerActivity::class.java).apply {
+                putExtra(EXTRA_STREAM_ID, item.id)
+                putExtra(EXTRA_STREAM_TITLE, item.title)
+                putExtra(
+                    EXTRA_SOURCE,
+                    if (item.id.startsWith("tn:")) Source.THUNDERNET.name else Source.BEISBOLPLAY.name
+                )
+                putStringArrayListExtra(EXTRA_CHANNEL_IDS, ids)
+                putStringArrayListExtra(EXTRA_CHANNEL_TITLES, titles)
+                putExtra(EXTRA_CHANNEL_INDEX, index)
+            }
+        )
     }
 
     private fun load() {
@@ -61,29 +86,47 @@ class TvBrowseFragment : BrowseSupportFragment() {
     }
 
     /**
-     * Recarga la lista de canales desde Dailymotion.
-     * onDone se ejecuta en el hilo UI al terminar.
+     * Recarga ambas filas. onDone se ejecuta en el hilo UI al terminar.
      */
     fun refresh(onDone: () -> Unit = {}) {
         Thread {
-            // Sin PC: la lista sale directo de Dailymotion.
-            val items = runCatching { DailymotionClient.fetchLive() }
-                .getOrDefault(emptyList())
-            lastItems = items
+            beisbolItems = runCatching { DailymotionClient.fetchLive() }.getOrDefault(emptyList())
+            thunderItems = if (ThundernetClient.isLoggedIn()) {
+                runCatching { ThundernetClient.getChannels() }.getOrDefault(emptyList())
+            } else {
+                emptyList()
+            }
             activity?.runOnUiThread {
                 rowsAdapter.clear()
-                val rowAdapter = ArrayObjectAdapter(cardPresenter)
-                items.forEach(rowAdapter::add)
-                rowsAdapter.add(ListRow(HeaderItem(getString(R.string.tv_row_live)), rowAdapter))
-                if (items.isEmpty()) {
-                    Toast.makeText(
-                        requireContext(),
-                        R.string.empty_live,
-                        Toast.LENGTH_LONG
-                    ).show()
+                // Fila 1: BéisbolPlay
+                val bpRow = ArrayObjectAdapter(cardPresenter)
+                beisbolItems.forEach(bpRow::add)
+                rowsAdapter.add(ListRow(HeaderItem("BéisbolPlay en vivo"), bpRow))
+                // Fila 2: Thundernet (o tarjeta de login)
+                val tnRow = ArrayObjectAdapter(cardPresenter)
+                if (ThundernetClient.isLoggedIn()) {
+                    thunderItems.forEach(tnRow::add)
+                } else {
+                    tnRow.add(
+                        StreamItem(
+                            id = LOGIN_CARD_ID,
+                            title = "Iniciar sesión en Thundernet",
+                            thumbnail = null,
+                            channel = "TV GO",
+                            logo = null
+                        )
+                    )
+                }
+                rowsAdapter.add(ListRow(HeaderItem("Thundernet"), tnRow))
+                if (beisbolItems.isEmpty() && thunderItems.isEmpty()) {
+                    Toast.makeText(requireContext(), R.string.empty_live, Toast.LENGTH_LONG).show()
                 }
                 onDone()
             }
         }.start()
+    }
+
+    companion object {
+        const val LOGIN_CARD_ID = "tn:login"
     }
 }

@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -12,9 +13,13 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 
 /**
  * Pantalla principal (teléfonos/tablets): lista de transmisiones en vivo
- * con "tirar para actualizar". Tocar una abre el reproductor.
+ * con "tirar para actualizar". Dos fuentes: BéisbolPlay (Dailymotion,
+ * sin cuenta) y Thundernet TV GO (con login, Widevine). Tocar una abre
+ * el reproductor.
  */
 class MainActivity : AppCompatActivity() {
+
+    enum class Source { BEISBOLPLAY, THUNDERNET }
 
     private lateinit var swipe: SwipeRefreshLayout
     private lateinit var list: RecyclerView
@@ -22,9 +27,19 @@ class MainActivity : AppCompatActivity() {
     private lateinit var errorView: View
     private lateinit var errorText: TextView
     private lateinit var retryButton: Button
+    private lateinit var sourceBeisbol: Button
+    private lateinit var sourceThundernet: Button
 
     private val adapter = StreamAdapter { openPlayer(it) }
     private var lastItems: List<StreamItem> = emptyList()
+    private var source: Source = Source.BEISBOLPLAY
+
+    private val loginLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) load()
+        else selectSource(Source.BEISBOLPLAY)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,21 +51,46 @@ class MainActivity : AppCompatActivity() {
         errorView = findViewById(R.id.error_view)
         errorText = findViewById(R.id.error_text)
         retryButton = findViewById(R.id.retry_button)
+        sourceBeisbol = findViewById(R.id.source_beisbol)
+        sourceThundernet = findViewById(R.id.source_thundernet)
 
         list.layoutManager = LinearLayoutManager(this)
         list.adapter = adapter
         swipe.setOnRefreshListener { load() }
         retryButton.setOnClickListener { load() }
+        sourceBeisbol.setOnClickListener { selectSource(Source.BEISBOLPLAY) }
+        sourceThundernet.setOnClickListener { selectSource(Source.THUNDERNET) }
 
+        updateSourceButtons()
         load()
+    }
+
+    private fun selectSource(s: Source) {
+        if (s == Source.THUNDERNET && !ThundernetClient.isLoggedIn()) {
+            loginLauncher.launch(Intent(this, ThundernetLoginActivity::class.java))
+            return
+        }
+        source = s
+        updateSourceButtons()
+        load()
+    }
+
+    private fun updateSourceButtons() {
+        val active = source == Source.BEISBOLPLAY
+        sourceBeisbol.alpha = if (active) 1f else 0.5f
+        sourceThundernet.alpha = if (!active) 1f else 0.5f
     }
 
     private fun load() {
         swipe.isRefreshing = true
         errorView.visibility = View.GONE
         Thread {
-            // Sin PC: la lista sale directo de Dailymotion.
-            val result = runCatching { DailymotionClient.fetchLive() }
+            val result = runCatching {
+                when (source) {
+                    Source.BEISBOLPLAY -> DailymotionClient.fetchLive()
+                    Source.THUNDERNET -> ThundernetClient.getChannels()
+                }
+            }
             runOnUiThread {
                 swipe.isRefreshing = false
                 result
@@ -62,6 +102,14 @@ class MainActivity : AppCompatActivity() {
                         emptyView.visibility = if (empty) View.VISIBLE else View.GONE
                     }
                     .onFailure { e ->
+                        // Sesión Thundernet vencida sin remedio: pedir login
+                        if (source == Source.THUNDERNET && e is ThundernetClient.AuthException) {
+                            ThundernetClient.logout()
+                            loginLauncher.launch(
+                                Intent(this, ThundernetLoginActivity::class.java)
+                            )
+                            return@runOnUiThread
+                        }
                         list.visibility = View.GONE
                         emptyView.visibility = View.GONE
                         errorText.text = getString(R.string.error_load, e.message ?: "")
@@ -79,6 +127,7 @@ class MainActivity : AppCompatActivity() {
             Intent(this, PlayerActivity::class.java).apply {
                 putExtra(EXTRA_STREAM_ID, item.id)
                 putExtra(EXTRA_STREAM_TITLE, item.title)
+                putExtra(EXTRA_SOURCE, source.name)
                 putStringArrayListExtra(EXTRA_CHANNEL_IDS, ids)
                 putStringArrayListExtra(EXTRA_CHANNEL_TITLES, titles)
                 putExtra(EXTRA_CHANNEL_INDEX, index)
@@ -89,6 +138,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_STREAM_ID = "stream_id"
         const val EXTRA_STREAM_TITLE = "stream_title"
+        const val EXTRA_SOURCE = "source"
         const val EXTRA_CHANNEL_IDS = "channel_ids"
         const val EXTRA_CHANNEL_TITLES = "channel_titles"
         const val EXTRA_CHANNEL_INDEX = "channel_index"
