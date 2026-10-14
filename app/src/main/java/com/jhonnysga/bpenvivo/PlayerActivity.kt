@@ -421,26 +421,18 @@ class PlayerActivity : AppCompatActivity() {
             .setTitle(R.string.quality_title)
             .setSingleChoiceItems(labels, checked) { dialog, which ->
                 val opt = opts[which]
-                val params = ts.buildUponParameters()
                 if (opt.height == -1) {
-                    // Automático: sin overrides, el adaptativo elige.
-                    params.setTrackSelectionOverrides(
-                        androidx.media3.common.TrackSelectionOverrides.EMPTY
-                    ).setMaxVideoBitrate(Int.MAX_VALUE)
+                    // Automático: sin override, el adaptativo elige.
+                    ts.clearSelectionOverrides(videoRenderer)
                     getPreferences(MODE_PRIVATE).edit().putString(PREF_QUALITY, "auto").apply()
                 } else {
-                    val group = groups.get(opt.group)
-                    val override = androidx.media3.exoplayer.trackselection.TrackSelectionOverride(
-                        group, opt.track
+                    val override = androidx.media3.exoplayer.trackselection.DefaultTrackSelector.SelectionOverride(
+                        opt.group, opt.track
                     )
-                    params.setTrackSelectionOverrides(
-                        androidx.media3.common.TrackSelectionOverrides.Builder()
-                            .addOverride(override).build()
-                    )
+                    ts.setSelectionOverride(videoRenderer, groups, override)
                     getPreferences(MODE_PRIVATE).edit()
                         .putString(PREF_QUALITY, opt.height.toString()).apply()
                 }
-                ts.setParameters(params.build())
                 updateQualityLabel()
                 dialog.dismiss()
             }
