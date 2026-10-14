@@ -260,12 +260,12 @@ class PlayerActivity : AppCompatActivity() {
             .setInitialBitrateEstimate(INITIAL_BITRATE_ESTIMATE)
             .build()
         trackSelector = DefaultTrackSelector(this).apply {
-            // La calidad manual se aplica cuando el diálogo elige pista;
-            // aquí solo se deja el adaptativo libre (Automático por defecto).
+            // Aplica la calidad guardada (auto o altura fija); persiste al zapear.
             setParameters(
-                buildUponParameters()
-                    .setAllowVideoMixedMimeTypeAdaptiveness(true)
-                    .build()
+                applyQuality(
+                    buildUponParameters().setAllowVideoMixedMimeTypeAdaptiveness(true),
+                    currentQuality()
+                ).build()
             )
         }
         // Buffer para en vivo sobre red con jitter: colchón amplio sin
@@ -375,6 +375,23 @@ class PlayerActivity : AppCompatActivity() {
         return getPreferences(MODE_PRIVATE).getString(PREF_QUALITY, "auto") ?: "auto"
     }
 
+    private fun saveQuality(q: String) {
+        getPreferences(MODE_PRIVATE).edit().putString(PREF_QUALITY, q).apply()
+    }
+
+    /** Aplica la calidad a los parámetros: auto = sin restricción. */
+    private fun applyQuality(
+        params: DefaultTrackSelector.ParametersBuilder,
+        quality: String
+    ): DefaultTrackSelector.ParametersBuilder {
+        val h = quality.toIntOrNull() ?: 0
+        return if (h > 0) {
+            params.setMaxVideoSize(Int.MAX_VALUE, h).setMinVideoSize(0, h)
+        } else {
+            params.setMaxVideoSize(Int.MAX_VALUE, Int.MAX_VALUE).setMinVideoSize(0, 0)
+        }
+    }
+
     private fun updateQualityLabel() {
         val q = currentQuality()
         qualityButton.text = if (q == "auto") "⚙ Auto" else "⚙ ${q}p"
@@ -398,15 +415,15 @@ class PlayerActivity : AppCompatActivity() {
         }
         if (videoRenderer == -1) return
 
-        data class Opt(val group: Int, val track: Int, val height: Int, val label: String)
-        val opts = mutableListOf(Opt(-1, -1, -1, getString(R.string.quality_auto)))
+        data class Opt(val height: Int, val label: String)
+        val opts = mutableListOf(Opt(-1, getString(R.string.quality_auto)))
         val seen = mutableSetOf<Int>()
         val groups = mapped.getTrackGroups(videoRenderer)
         for (g in 0 until groups.length) {
             val group = groups.get(g)
             for (t in 0 until group.length) {
                 val h = group.getFormat(t).height
-                if (h > 0 && seen.add(h)) opts.add(Opt(g, t, h, "${h}p"))
+                if (h > 0 && seen.add(h)) opts.add(Opt(h, "${h}p"))
             }
         }
         opts.sortByDescending { it.height }
@@ -421,18 +438,9 @@ class PlayerActivity : AppCompatActivity() {
             .setTitle(R.string.quality_title)
             .setSingleChoiceItems(labels, checked) { dialog, which ->
                 val opt = opts[which]
-                if (opt.height == -1) {
-                    // Automático: sin override, el adaptativo elige.
-                    ts.clearSelectionOverrides(videoRenderer)
-                    getPreferences(MODE_PRIVATE).edit().putString(PREF_QUALITY, "auto").apply()
-                } else {
-                    val override = androidx.media3.exoplayer.trackselection.DefaultTrackSelector.SelectionOverride(
-                        opt.group, opt.track
-                    )
-                    ts.setSelectionOverride(videoRenderer, groups, override)
-                    getPreferences(MODE_PRIVATE).edit()
-                        .putString(PREF_QUALITY, opt.height.toString()).apply()
-                }
+                val q = if (opt.height == -1) "auto" else opt.height.toString()
+                saveQuality(q)
+                ts.setParameters(applyQuality(ts.buildUponParameters(), q).build())
                 updateQualityLabel()
                 dialog.dismiss()
             }
