@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Paleta TruenoTv: igual a Thundernet TV GO (fondo azul marino oscuro, acento cyan). -->
+<!-- Paleta TruenoTv: igual a Thundernet TV GO (fondo casi negro, acento morado). -->
 <resources>
-    <color name="background">#FF0A0D16</color>
-    <color name="surface">#FF141A2E</color>
-    <color name="accent">#FF22D3EE</color>
+    <color name="background">#FF141515</color>
+    <color name="surface">#FF1E1E1E</color>
+    <color name="accent">#FF8B5CF6</color>
     <color name="live_red">#FFE30613</color>
-    <color name="text_primary">#FFEEF1F8</color>
+    <color name="text_primary">#FFFFFFFF</color>
     <color name="text_secondary">#FF9AA3B8</color>
-    <color name="ic_launcher_background">#FF0A0D16</color>
+    <color name="ic_launcher_background">#FF141515</color>
 </resources>

@@ -1,66 +1,98 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Login TruenoTv: igual a la página de Thundernet TV GO (título a la izquierda,
+     campos con solo borde inferior, botón píldora morado). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background"
-    android:gravity="center"
+    android:gravity="center_vertical"
     android:orientation="vertical"
-    android:padding="32dp">
+    android:padding="28dp">
 
-    <TextView
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="TruenoTv"
+        android:layout_marginBottom="36dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_launcher_foreground" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="TruenoTv"
+            android:textColor="@color/text_primary"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="28dp"
+        android:text="Iniciar sesión"
         android:textColor="@color/text_primary"
-        android:textSize="24sp"
+        android:textSize="26sp"
         android:textStyle="bold" />
 
     <TextView
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="24dp"
-        android:text="Inicia sesión para ver los canales"
+        android:layout_marginBottom="6dp"
+        android:text="Nombre de usuario o correo electrónico"
         android:textColor="@color/text_secondary"
-        android:textSize="14sp" />
+        android:textSize="13sp" />
 
     <EditText
         android:id="@+id/login_email"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="12dp"
-        android:background="@drawable/banner_background"
-        android:hint="Usuario o email"
+        android:layout_height="48dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/input_underline"
+        android:hint="Ingrese su Nombre de Usuario o Correo"
         android:inputType="textEmailAddress"
-        android:padding="14dp"
+        android:padding="10dp"
         android:textColor="@color/text_primary"
         android:textColorHint="@color/text_secondary" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="6dp"
+        android:text="Contraseña"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp" />
 
     <EditText
         android:id="@+id/login_password"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="20dp"
-        android:background="@drawable/banner_background"
-        android:hint="Contraseña"
+        android:layout_height="48dp"
+        android:layout_marginBottom="28dp"
+        android:background="@drawable/input_underline"
+        android:hint="Ingresa contraseña"
         android:inputType="textPassword"
-        android:padding="14dp"
+        android:padding="10dp"
         android:textColor="@color/text_primary"
         android:textColorHint="@color/text_secondary" />
 
     <Button
         android:id="@+id/login_button"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:backgroundTint="@color/accent"
-        android:padding="14dp"
-        android:text="Entrar"
+        android:layout_height="48dp"
+        android:background="@drawable/btn_pill"
+        android:text="Iniciar sesión"
         android:textColor="@android:color/white"
+        android:textSize="16sp"
         android:textStyle="bold" />
 
     <TextView
         android:id="@+id/login_error"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:gravity="center"
@@ -72,6 +104,7 @@
         android:id="@+id/login_progress"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
         android:layout_marginTop="16dp"
         android:visibility="gone" />
 
