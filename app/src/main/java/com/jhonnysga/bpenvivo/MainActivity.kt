@@ -24,6 +24,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var retryButton: Button
 
     private val adapter = StreamAdapter { openPlayer(it) }
+    private var lastItems: List<StreamItem> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +55,7 @@ class MainActivity : AppCompatActivity() {
                 swipe.isRefreshing = false
                 result
                     .onSuccess { items ->
+                        lastItems = items
                         adapter.submit(items)
                         val empty = items.isEmpty()
                         list.visibility = if (empty) View.GONE else View.VISIBLE
@@ -70,10 +72,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openPlayer(item: StreamItem) {
+        val ids = ArrayList(lastItems.map { it.id })
+        val titles = ArrayList(lastItems.map { it.title })
+        val index = lastItems.indexOfFirst { it.id == item.id }.coerceAtLeast(0)
         startActivity(
             Intent(this, PlayerActivity::class.java).apply {
                 putExtra(EXTRA_STREAM_ID, item.id)
                 putExtra(EXTRA_STREAM_TITLE, item.title)
+                putStringArrayListExtra(EXTRA_CHANNEL_IDS, ids)
+                putStringArrayListExtra(EXTRA_CHANNEL_TITLES, titles)
+                putExtra(EXTRA_CHANNEL_INDEX, index)
             }
         )
     }
@@ -81,5 +89,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_STREAM_ID = "stream_id"
         const val EXTRA_STREAM_TITLE = "stream_title"
+        const val EXTRA_CHANNEL_IDS = "channel_ids"
+        const val EXTRA_CHANNEL_TITLES = "channel_titles"
+        const val EXTRA_CHANNEL_INDEX = "channel_index"
     }
 }

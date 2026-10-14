@@ -8,6 +8,7 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.MediaItem
@@ -22,6 +23,9 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.ui.PlayerView
+import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_CHANNEL_IDS
+import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_CHANNEL_INDEX
+import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_CHANNEL_TITLES
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_ID
 import com.jhonnysga.bpenvivo.MainActivity.Companion.EXTRA_STREAM_TITLE
 
@@ -55,6 +59,8 @@ class PlayerActivity : AppCompatActivity() {
         private const val PREF_MAX_BITRATE = "max_video_bitrate"
         /** Tiempo sin interacción antes de ocultar título y botón de calidad. */
         private const val OVERLAY_HIDE_MS = 5_000L
+        /** Segundos que el banner de canal queda visible al zapear. */
+        private const val BANNER_SHOW_MS = 4_000L
     }
 
     private var player: ExoPlayer? = null
@@ -66,6 +72,9 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var qualityButton: Button
     private lateinit var errorView: View
     private lateinit var retryButton: Button
+    private lateinit var channelBanner: LinearLayout
+    private lateinit var bannerNumber: TextView
+    private lateinit var bannerName: TextView
 
     private val handler = Handler(Looper.getMainLooper())
     private var retryCount = 0
@@ -77,6 +86,11 @@ class PlayerActivity : AppCompatActivity() {
 
     private var streamId: String = ""
     private var streamTitle: String = ""
+    /** Lista completa para zapear con el control (TV). */
+    private var channelIds: List<String> = emptyList()
+    private var channelTitles: List<String> = emptyList()
+    private var currentIndex: Int = 0
+    private val bannerHideRunnable = Runnable { hideChannelBanner() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,6 +98,14 @@ class PlayerActivity : AppCompatActivity() {
 
         streamId = intent.getStringExtra(EXTRA_STREAM_ID).orEmpty()
         streamTitle = intent.getStringExtra(EXTRA_STREAM_TITLE).orEmpty()
+        channelIds = intent.getStringArrayListExtra(EXTRA_CHANNEL_IDS).orEmpty()
+        channelTitles = intent.getStringArrayListExtra(EXTRA_CHANNEL_TITLES).orEmpty()
+        currentIndex = intent.getIntExtra(EXTRA_CHANNEL_INDEX, 0)
+            .coerceIn(0, (channelIds.size - 1).coerceAtLeast(0))
+        if (channelIds.isNotEmpty()) {
+            streamId = channelIds[currentIndex]
+            streamTitle = channelTitles.getOrElse(currentIndex) { streamId }
+        }
         if (streamId.isBlank()) {
             finish()
             return
@@ -95,6 +117,9 @@ class PlayerActivity : AppCompatActivity() {
         qualityButton = findViewById(R.id.player_quality)
         errorView = findViewById(R.id.player_error)
         retryButton = findViewById(R.id.player_retry)
+        channelBanner = findViewById(R.id.channel_banner)
+        bannerNumber = findViewById(R.id.banner_number)
+        bannerName = findViewById(R.id.banner_name)
 
         titleView.text = streamTitle
         playerView.keepScreenOn = true
@@ -145,10 +170,61 @@ class PlayerActivity : AppCompatActivity() {
         return super.dispatchTouchEvent(ev)
     }
 
-    // Fire TV: cualquier tecla del control muestra los overlays de nuevo.
+    // Fire TV: arriba/abajo del D-pad cambia de canal (zapping) cuando los
+    // overlays están ocultos; si están visibles, el D-pad navega la UI.
+    // Cualquier otra tecla muestra los overlays de nuevo.
     override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean {
+        if ((keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP ||
+                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN) &&
+            !overlaysVisible()
+        ) {
+            zap(if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP) 1 else -1)
+            return true
+        }
         showOverlays()
         return super.onKeyDown(keyCode, event)
+    }
+
+    private fun overlaysVisible(): Boolean {
+        return titleView.visibility == View.VISIBLE ||
+            qualityButton.visibility == View.VISIBLE
+    }
+
+    /**
+     * Cambia al canal siguiente/anterior (con vuelta al inicio/fin),
+     * muestra el banner con el nombre y arranca la reproducción.
+     */
+    private fun zap(delta: Int) {
+        if (channelIds.size < 2) return
+        currentIndex = (currentIndex + delta + channelIds.size) % channelIds.size
+        streamId = channelIds[currentIndex]
+        streamTitle = channelTitles.getOrElse(currentIndex) { streamId }
+        titleView.text = streamTitle
+        retryCount = 0
+        startPlayback()
+    }
+
+    /** Banner profesional con número + nombre del canal; se desvanece solo. */
+    private fun showChannelBanner() {
+        bannerNumber.text = (currentIndex + 1).toString()
+        bannerName.text = streamTitle
+        handler.removeCallbacks(bannerHideRunnable)
+        channelBanner.visibility = View.VISIBLE
+        channelBanner.alpha = 0f
+        channelBanner.animate().alpha(1f).setDuration(250).start()
+        handler.postDelayed(bannerHideRunnable, BANNER_SHOW_MS)
+    }
+
+    private fun hideChannelBanner() {
+        channelBanner.animate().alpha(0f).setDuration(400).withEndAction {
+            channelBanner.visibility = View.GONE
+        }.start()
+    }
+
+    private fun cancelBanner() {
+        handler.removeCallbacks(bannerHideRunnable)
+        channelBanner.animate().cancel()
+        channelBanner.visibility = View.GONE
     }
 
     override fun onStart() {
@@ -162,6 +238,7 @@ class PlayerActivity : AppCompatActivity() {
         generation++ // invalida extracciones en curso
         cancelRetry()
         cancelOverlayHide()
+        cancelBanner()
         releasePlayer()
     }
 
@@ -217,6 +294,7 @@ class PlayerActivity : AppCompatActivity() {
         statusView.text = getString(R.string.status_connecting)
         statusView.tag = "connecting"
         statusView.visibility = View.VISIBLE
+        showChannelBanner() // banner con el nombre del canal al arrancar y al zapear
         val gen = ++generation
         Thread {
             val result = runCatching { DailymotionClient.extractStreamUrl(streamId) }
