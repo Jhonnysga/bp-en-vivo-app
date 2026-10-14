@@ -17,6 +17,13 @@ resuelve en el propio dispositivo.
   pide el stream es la misma que lo reproduce, como exige el token.
 - Cada reintento automático extrae una URL fresca (los tokens vencen).
 
+## Red resiliente (v2.2)
+
+Algunos operadores móviles fallan o bloquean el DNS para ciertos
+dominios. La app usa OkHttp con doble resolución: primero el DNS del
+sistema y, si falla, DNS-over-HTTPS (Cloudflare/Google con IPs fijas).
+Aplica tanto a la API y al extractor como a la reproducción de video.
+
 ## TV / Fire TV Stick
 
 - En el reproductor, **arriba/abajo del D-pad cambia de canal**

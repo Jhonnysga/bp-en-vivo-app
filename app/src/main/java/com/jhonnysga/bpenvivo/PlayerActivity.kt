@@ -16,7 +16,7 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.datasource.DataSource
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -242,9 +242,12 @@ class PlayerActivity : AppCompatActivity() {
         releasePlayer()
     }
 
-    /** Headers que Dailymotion exige para servir el stream. */
+    /**
+     * Fuente de datos sobre el cliente resiliente (DNS normal + DoH de
+     * respaldo) con los headers que Dailymotion exige para el stream.
+     */
     private fun buildDataSourceFactory(): DataSource.Factory {
-        return DefaultHttpDataSource.Factory()
+        return OkHttpDataSource.Factory(Net.client)
             .setUserAgent(DailymotionClient.USER_AGENT)
             .setDefaultRequestProperties(mapOf("Referer" to DailymotionClient.REFERER))
     }

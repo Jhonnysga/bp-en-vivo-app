@@ -2,8 +2,7 @@ package com.jhonnysga.bpenvivo
 
 import org.json.JSONObject
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
+import java.net.UnknownHostException
 
 /**
  * Cliente Dailymotion on-device: la app pide y reproduce directo, sin
@@ -31,8 +30,7 @@ object DailymotionClient {
      */
     const val REFERER = "https://www.dailymotion.com/"
 
-    private const val CONNECT_TIMEOUT_MS = 15_000
-    private const val READ_TIMEOUT_MS = 15_000
+    // Timeouts: los maneja Net (15 s).
 
     /**
      * Lista los videos marcados en vivo por la API y confirma uno por uno
@@ -125,23 +123,19 @@ object DailymotionClient {
 
     @Throws(IOException::class)
     private fun httpGet(url: String): String {
-        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = CONNECT_TIMEOUT_MS
-            readTimeout = READ_TIMEOUT_MS
-            requestMethod = "GET"
-            setRequestProperty("User-Agent", USER_AGENT)
-            setRequestProperty("Referer", REFERER)
-            setRequestProperty("Accept", "application/json")
-            instanceFollowRedirects = true
-        }
-        try {
-            val code = conn.responseCode
-            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-            if (code !in 200..299) throw IOException("HTTP $code")
-            return body
-        } finally {
-            conn.disconnect()
+        return try {
+            Net.get(
+                url,
+                mapOf(
+                    "User-Agent" to USER_AGENT,
+                    "Referer" to REFERER,
+                    "Accept" to "application/json"
+                )
+            )
+        } catch (e: UnknownHostException) {
+            // Ni el DNS del sistema ni el de respaldo resolvieron:
+            // sin internet o bloqueo total.
+            throw IOException("Sin conexión a internet o DNS bloqueado")
         }
     }
 }
