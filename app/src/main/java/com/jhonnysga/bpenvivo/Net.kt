@@ -2,10 +2,13 @@ package com.jhonnysga.bpenvivo
 
 import okhttp3.Dns
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.JavaNetCookieJar
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.dnsoverhttps.DnsOverHttps
 import java.io.IOException
+import java.net.CookieManager
+import java.net.CookiePolicy
 import java.net.InetAddress
 import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
@@ -60,11 +63,17 @@ object Net {
         }
     }
 
+    /** Cookies: la sesión de Thundernet viaja en cookie (además del Bearer). */
+    private val cookieManager = CookieManager().apply {
+        setCookiePolicy(CookiePolicy.ACCEPT_ALL)
+    }
+
     /** Cliente con cookies (para la sesión del player autorizado). */
     fun newBuilder(): OkHttpClient.Builder = baseBuilder()
 
     private fun baseBuilder(): OkHttpClient.Builder = OkHttpClient.Builder()
         .dns(resilientDns)
+        .cookieJar(JavaNetCookieJar(cookieManager))
         .connectTimeout(TIMEOUT_S, TimeUnit.SECONDS)
         .readTimeout(TIMEOUT_S, TimeUnit.SECONDS)
 
