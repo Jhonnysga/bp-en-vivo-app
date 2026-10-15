@@ -1,14 +1,14 @@
 package com.jhonnysga.bpenvivo
 
+import okhttp3.Cookie
+import okhttp3.CookieJar
 import okhttp3.Dns
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
-import okhttp3.JavaNetCookieJar
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.dnsoverhttps.DnsOverHttps
 import java.io.IOException
-import java.net.CookieManager
-import java.net.CookiePolicy
 import java.net.InetAddress
 import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
@@ -63,9 +63,16 @@ object Net {
         }
     }
 
-    /** Cookies: la sesión de Thundernet viaja en cookie (además del Bearer). */
-    private val cookieManager = CookieManager().apply {
-        setCookiePolicy(CookiePolicy.ACCEPT_ALL)
+    /** Cookies en memoria: la sesión de Thundernet viaja en cookie (además del Bearer). */
+    private val cookieJar = object : CookieJar {
+        private val store = mutableListOf<Cookie>()
+        override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
+            // Reemplaza cookies del mismo nombre para no duplicar.
+            for (c in cookies) store.removeAll { it.name == c.name }
+            store.addAll(cookies)
+        }
+        override fun loadForRequest(url: HttpUrl): List<Cookie> =
+            store.filter { it.matches(url) }
     }
 
     /** Cliente con cookies (para la sesión del player autorizado). */
@@ -73,7 +80,7 @@ object Net {
 
     private fun baseBuilder(): OkHttpClient.Builder = OkHttpClient.Builder()
         .dns(resilientDns)
-        .cookieJar(JavaNetCookieJar(cookieManager))
+        .cookieJar(cookieJar)
         .connectTimeout(TIMEOUT_S, TimeUnit.SECONDS)
         .readTimeout(TIMEOUT_S, TimeUnit.SECONDS)
 
