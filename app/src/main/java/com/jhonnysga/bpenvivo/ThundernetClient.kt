@@ -36,6 +36,7 @@ object ThundernetClient {
 
     private const val PREFS = "thundernet_secure"
     private const val KEY_TOKEN = "session_token"
+    private const val KEY_ACCOUNT_TOKEN = "account_token"
     private const val KEY_REFRESH = "refresh_token"
     private const val KEY_EMAIL = "email"
     private const val KEY_PASSWORD = "password"
@@ -73,6 +74,11 @@ object ThundernetClient {
         get() = prefs().getString(KEY_TOKEN, null)
         private set(v) = prefs().edit().putString(KEY_TOKEN, v).apply()
 
+    /** Token de cuenta para reproducción: separado del token de sesión. */
+    var accountToken: String?
+        get() = prefs().getString(KEY_ACCOUNT_TOKEN, null)
+        private set(v) = prefs().edit().putString(KEY_ACCOUNT_TOKEN, v).apply()
+
     /** ID de dispositivo persistente para las macros STPLX_*. */
     fun deviceId(): String {
         val p = prefs()
@@ -84,7 +90,7 @@ object ThundernetClient {
     fun isLoggedIn(): Boolean = !sessionToken.isNullOrBlank()
 
     fun logout() {
-        prefs().edit().remove(KEY_TOKEN).remove(KEY_REFRESH).apply()
+        prefs().edit().remove(KEY_TOKEN).remove(KEY_ACCOUNT_TOKEN).remove(KEY_REFRESH).apply()
     }
 
     /**
@@ -139,7 +145,9 @@ object ThundernetClient {
             Request.Builder().url("$API/v3/account/access_token")
                 .header("Authorization", "Bearer $sessionToken").build()
         )
-        pickToken(payload.optJSONObject("payload"))?.let { sessionToken = it }
+        // El token de cuenta va en su propio campo: jamás debe reemplazar
+        // el token de sesión (eso rompía el login en bucle).
+        pickToken(payload.optJSONObject("payload"))?.let { accountToken = it }
     }
 
     /** Re-login silencioso con credenciales guardadas. */
