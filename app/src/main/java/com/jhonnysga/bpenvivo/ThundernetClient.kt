@@ -240,9 +240,15 @@ object ThundernetClient {
 
     private fun payloadArray(obj: JSONObject): List<JSONObject> {
         val payload = obj.optJSONObject("payload") ?: return emptyList()
-        val arr = payload.optJSONArray("list")
-            ?: payload.optJSONArray("items")
+        // Mismos campos que el cliente web (api.js asArray).
+        val arr = payload.optJSONArray("content")
             ?: payload.optJSONArray("channels")
+            ?: payload.optJSONArray("items")
+            ?: payload.optJSONArray("list")
+            ?: payload.optJSONArray("data")
+            ?: payload.optJSONArray("results")
+            ?: payload.optJSONArray("programmes")
+            ?: payload.optJSONArray("programs")
             ?: return emptyList()
         return (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }
     }
@@ -252,11 +258,21 @@ object ThundernetClient {
     fun getChannels(): List<StreamItem> {
         val res = apiGet("/v3/channels/tv")
         return payloadArray(res).mapNotNull { c ->
-            val id = c.optString("id").ifBlank { return@mapNotNull null }
+            // Mismos fallbacks que el cliente web (api.js chId/chName/chLogo).
+            val id = c.optString("id")
+                .ifBlank { c.optString("channelId") }
+                .ifBlank { c.optString("channel_id") }
+                .ifBlank { return@mapNotNull null }
+            val name = c.optString("name").ifBlank { c.optString("title") }.ifBlank { id }
+            val logo = c.optString("logoUrl")
+                .ifBlank { c.optString("logo") }
+                .ifBlank { c.optString("image") }
+                .ifBlank { c.optString("poster") }
+                .takeIf { it.isNotBlank() }
             StreamItem(
                 id = "tn:$id",
-                title = c.optString("name").ifBlank { id },
-                thumbnail = c.optString("logoUrl").takeIf { it.isNotBlank() },
+                title = name,
+                thumbnail = logo,
                 channel = c.optString("categoryName").takeIf { it.isNotBlank() } ?: "TruenoTv",
                 logo = null
             )
